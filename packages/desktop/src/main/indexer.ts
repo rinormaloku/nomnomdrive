@@ -8,7 +8,7 @@ import { isSupportedExtension, parseDocument } from './parser';
 import { splitIntoChunks } from './chunker';
 import type { Store } from './store';
 import type { Embedder } from './embedder';
-import { makeDocId, makeChunkId, hashString } from './store';
+import { makeDocId, makeChunkId } from './store';
 
 type IndexAction = 'upsert' | 'delete';
 
@@ -125,7 +125,17 @@ export class Indexer {
 
     // 5. Chunk
     this.emitProgress({ filePath, phase: 'chunking', chunksProcessed: 0, chunksTotal: 0, queueLength: this.queue.length });
-    const chunks = splitIntoChunks(text);
+    const rawChunks = splitIntoChunks(text);
+
+    // Prepend per-chunk metadata so the embedding captures document identity.
+    // This lets the vector search associate content with its source file —
+    // e.g. a chunk that's just a number becomes retrievable by file name.
+    const fileName = path.basename(relativePath);
+    const totalChunks = rawChunks.length;
+    const chunks = rawChunks.map((c) => ({
+      ...c,
+      text: `<metadata>\nfile: ${relativePath}\nname: ${fileName}\ntype: ${fileType}\nchunk: ${c.index + 1} of ${totalChunks}\n</metadata>\n\n${c.text}`,
+    }));
 
     // 6. Content-addressed chunk IDs: hash(text) → same text = same ID across docs.
     //    Check which chunks are already stored so we can skip re-embedding them.

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -8,11 +9,12 @@
   <title>NomNomDrive</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
+
 <body>
   <!-- ── Header ──────────────────────────────────── -->
   <div class="header">
     <div class="header-left">
-      <svg class="header-logo" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" width="22" height="22">
+      <svg class="header-logo" viewBox="0 0 344 344" xmlns="http://www.w3.org/2000/svg" width="22" height="22">
         <defs>
           <radialGradient id="hGrad" cx="50%" cy="40%" r="60%">
             <stop offset="0%" stop-color="#eaeff5" />
@@ -22,24 +24,47 @@
             <stop offset="0%" stop-color="#2d3748" />
             <stop offset="100%" stop-color="#1a202c" />
           </linearGradient>
-          <filter id="hSh" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="1" stdDeviation="2" flood-opacity=".12"/></filter>
+          <filter id="hSh" x="-10%" y="-10%" width="120%" height="120%">
+            <feDropShadow dx="0" dy="1" stdDeviation="2" flood-opacity=".12" />
+          </filter>
         </defs>
         <g filter="url(#hSh)">
-          <path d="M90,190 C90,110 140,80 200,80 C260,80 310,110 310,190 C310,260 270,310 200,310 C130,310 90,260 90,190 Z" fill="url(#hGrad)" stroke="#b8c4d0" stroke-width="3" />
-          <path d="M120,180 C120,135 150,120 200,120 C250,120 280,135 280,180 C280,215 255,235 200,235 C145,235 120,215 120,180 Z" fill="url(#vGrad)" />
-          <ellipse cx="165" cy="175" rx="18" ry="10" fill="#00d2ff" transform="rotate(-3, 165, 175)" />
-          <ellipse cx="235" cy="175" rx="18" ry="10" fill="#00d2ff" transform="rotate(3, 235, 175)" />
+          <!-- Bot SVG Paths -->
+          <path class="a"
+            d="m172 334c-89.6 0-162-72.4-162-162 0-89.6 72.4-162 162-162 89.6 0 162 72.4 162 162 0 89.6-72.4 162-162 162z"
+            fill="#222" />
+          <path class="b"
+            d="m135.9 285.1c-27.9-4.1-54-12.1-77.6-27.2-32.5-20.9-46.7-50.1-40.5-88.6 10.2-63.4 43.9-109.1 105.1-130 87.4-29.8 177.9 21.8 200 112 3.9 16 6 32.2 3.8 48.5-3.4 25.2-18.4 42.7-38.6 56.4-25.8 17.5-54.9 25.9-85.5 29.7-22.1 2.7-44.2 2.3-66.7-0.8zm-62.7-162.4c-13.7 14.4-19 32.1-20.3 51.4-1.9 25.8 9 44.3 31.7 56.2 3.5 1.8 7.2 3.5 10.9 4.9 30.1 11.2 61.5 12.6 93.1 11.2 22.7-0.9 45.1-4.3 66.1-13.7 27.9-12.6 39.4-32.8 36.2-63.2-2.9-27.5-15.2-49.1-40.5-61.9-7.2-3.6-15-6.6-22.8-8.4-33.1-7.8-66.4-7.8-99.8-2.5-20.4 3.3-39.2 10.3-54.6 26z"
+            fill="#fcfcfc" />
+          <path class="c"
+            d="m73.4 122.4c15.2-15.4 34-22.4 54.4-25.7 33.4-5.3 66.7-5.3 99.8 2.5 7.8 1.8 15.6 4.8 22.8 8.4 25.3 12.8 37.6 34.4 40.5 61.9 3.2 30.4-8.3 50.6-36.2 63.2-21 9.4-43.4 12.8-66.1 13.7-31.6 1.4-63 0-93.1-11.2-3.7-1.4-7.4-3.1-10.9-4.9-22.7-11.9-33.6-30.4-31.7-56.2 1.3-19.3 6.6-37 20.5-51.7zm22.1 47.7c-1.8 6.3-0.8 10.2 3.3 11.5 5.3 1.6 7.7-1.5 9.7-6 2.2-4.7 6.5-7.1 11.8-7.1 5.2 0 9.2 2.4 11.8 7 0.5 0.8 0.8 1.8 1.3 2.7 1.7 3.2 4.5 4.5 7.9 3.5 3.6-0.9 5.4-3.6 4.8-7.1-0.5-3-1.5-6.2-3.2-8.8-11.9-17.6-37-15.6-47.4 4.3zm128.9-16.2c-1.5 0.1-3 0-4.5 0.2-10.2 1.2-20.2 9.7-21.9 18.6-0.7 4 0.1 7.5 4.4 8.9 4.1 1.4 7.1-0.3 8.7-4.4 2.4-5.6 6.7-8.8 12.8-8.7 6 0.1 10.2 3.3 12.5 9 1.6 4.2 4.9 5.5 8.9 4 3.9-1.4 5.1-4.6 4.2-8.5-0.5-2.1-1.4-4.1-2.5-6-4.9-8.1-12.2-12.4-22.6-13.1z"
+            fill="#010202" />
+          <path class="d"
+            d="m95.6 169.8c10.3-19.6 35.4-21.6 47.3-4 1.7 2.6 2.7 5.8 3.2 8.8 0.6 3.5-1.2 6.2-4.8 7.1-3.4 1-6.2-0.3-7.9-3.5-0.5-0.9-0.8-1.9-1.3-2.7-2.6-4.6-6.6-7-11.8-7-5.3 0-9.6 2.4-11.8 7.1-2 4.5-4.4 7.6-9.7 6-4.1-1.3-5.1-5.2-3.2-11.8z"
+            fill="#4bb3ec" />
+          <path class="d"
+            d="m224.9 153.9c9.9 0.7 17.2 5 22.1 13.1 1.1 1.9 2 3.9 2.5 6 0.9 3.9-0.3 7.1-4.2 8.5-4 1.5-7.3 0.2-8.9-4-2.3-5.7-6.5-8.9-12.5-9-6.1-0.1-10.4 3.1-12.8 8.7-1.6 4.1-4.6 5.8-8.7 4.4-4.3-1.4-5.1-4.9-4.4-8.9 1.7-8.9 11.7-17.4 21.9-18.6 1.5-0.2 3-0.1 5-0.2z"
+            fill="#4bb3ec" />
         </g>
       </svg>
       <span class="header-title">NomNomDrive</span>
     </div>
     <div class="header-actions">
       <button class="header-btn" id="open-folder-btn" title="Open drop folder">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M1 3.5C1 2.67 1.67 2 2.5 2H6l1.5 1.5H13.5C14.33 3.5 15 4.17 15 5V12.5C15 13.33 14.33 14 13.5 14H2.5C1.67 14 1 13.33 1 12.5V3.5Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+          <path
+            d="M1 3.5C1 2.67 1.67 2 2.5 2H6l1.5 1.5H13.5C14.33 3.5 15 4.17 15 5V12.5C15 13.33 14.33 14 13.5 14H2.5C1.67 14 1 13.33 1 12.5V3.5Z"
+            stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" />
+        </svg>
         <span>Open Folder</span>
       </button>
       <button class="icon-btn" title="Settings" id="settings-btn">
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 10a2 2 0 100-4 2 2 0 000 4z" stroke="currentColor" stroke-width="1.3"/><path d="M13.5 8a5.5 5.5 0 01-.3 1.8l1.3 1-1 1.7-1.5-.6a5.5 5.5 0 01-1.5.9L10 14H8l-.5-1.2a5.5 5.5 0 01-1.5-.9l-1.5.6-1-1.7 1.3-1A5.5 5.5 0 014.5 8c0-.6.1-1.2.3-1.8l-1.3-1 1-1.7 1.5.6A5.5 5.5 0 017.5 3.2L8 2h2l.5 1.2a5.5 5.5 0 011.5.9l1.5-.6 1 1.7-1.3 1c.2.6.3 1.2.3 1.8z" stroke="currentColor" stroke-width="1.3"/></svg>
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+          <path d="M8 10a2 2 0 100-4 2 2 0 000 4z" stroke="currentColor" stroke-width="1.3" />
+          <path
+            d="M13.5 8a5.5 5.5 0 01-.3 1.8l1.3 1-1 1.7-1.5-.6a5.5 5.5 0 01-1.5.9L10 14H8l-.5-1.2a5.5 5.5 0 01-1.5-.9l-1.5.6-1-1.7 1.3-1A5.5 5.5 0 014.5 8c0-.6.1-1.2.3-1.8l-1.3-1 1-1.7 1.5.6A5.5 5.5 0 017.5 3.2L8 2h2l.5 1.2a5.5 5.5 0 011.5.9l1.5-.6 1 1.7-1.3 1c.2.6.3 1.2.3 1.8z"
+            stroke="currentColor" stroke-width="1.3" />
+        </svg>
       </button>
     </div>
   </div>
@@ -47,11 +72,19 @@
   <!-- ── Tab Bar ─────────────────────────────────── -->
   <div class="tab-bar">
     <button class="tab active" data-tab="files">
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 3.5C2 2.67 2.67 2 3.5 2H6.5L8 3.5H12.5C13.33 3.5 14 4.17 14 5V12.5C14 13.33 13.33 14 12.5 14H3.5C2.67 14 2 13.33 2 12.5V3.5Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+        <path
+          d="M2 3.5C2 2.67 2.67 2 3.5 2H6.5L8 3.5H12.5C13.33 3.5 14 4.17 14 5V12.5C14 13.33 13.33 14 12.5 14H3.5C2.67 14 2 13.33 2 12.5V3.5Z"
+          stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" />
+      </svg>
       Files
     </button>
     <button class="tab" data-tab="mcp">
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 4h8v8H4z" stroke="currentColor" stroke-width="1.3" rx="1"/><path d="M7 1v3M9 1v3M7 12v3M9 12v3M1 7h3M1 9h3M12 7h3M12 9h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+        <path d="M4 4h8v8H4z" stroke="currentColor" stroke-width="1.3" rx="1" />
+        <path d="M7 1v3M9 1v3M7 12v3M9 12v3M1 7h3M1 9h3M12 7h3M12 9h3" stroke="currentColor" stroke-width="1.3"
+          stroke-linecap="round" />
+      </svg>
       MCP Connections
     </button>
   </div>
@@ -62,35 +95,47 @@
     <!-- ── Sync Fullscreen View (active indexing) ──── -->
     <div class="sync-fullview" id="sync-fullview">
       <div class="sync-fv-bot bot-eating">
-        <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+        <svg viewBox="0 0 344 344" xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <radialGradient id="bFvH" cx="50%" cy="40%" r="60%"><stop offset="0%" stop-color="#eaeff5"/><stop offset="100%" stop-color="#d5dce6"/></radialGradient>
-            <linearGradient id="bFvV" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#2d3748"/><stop offset="100%" stop-color="#1a202c"/></linearGradient>
-            <clipPath id="mClipFv"><rect x="0" y="258" width="400" height="200"/></clipPath>
-            <filter id="bFvSh" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="3" stdDeviation="6" flood-opacity=".12"/></filter>
+            <clipPath id="mClipFv">
+              <rect x="0" y="248" width="344" height="200" />
+            </clipPath>
+            <filter id="bFvSh" x="-10%" y="-10%" width="120%" height="130%">
+              <feDropShadow dx="0" dy="3" stdDeviation="6" flood-opacity=".12" />
+            </filter>
           </defs>
           <g class="anim-head" filter="url(#bFvSh)">
-            <path d="M90,190 C90,110 140,80 200,80 C260,80 310,110 310,190 C310,260 270,310 200,310 C130,310 90,260 90,190Z" fill="url(#bFvH)" stroke="#b8c4d0" stroke-width="3"/>
-            <path d="M120,180 C120,135 150,120 200,120 C250,120 280,135 280,180 C280,215 255,235 200,235 C145,235 120,215 120,180Z" fill="url(#bFvV)"/>
-            <g class="anim-eye-glow">
-              <ellipse cx="165" cy="175" rx="18" ry="10" fill="#00d2ff" transform="rotate(-3,165,175)"/>
-              <ellipse cx="235" cy="175" rx="18" ry="10" fill="#00d2ff" transform="rotate(3,235,175)"/>
-            </g>
-            <path class="anim-mouth" d="M160,255 Q200,257 240,255" fill="none" stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/>
-            <ellipse cx="140" cy="210" rx="12" ry="6" fill="#fda4af" opacity=".4"/>
-            <ellipse cx="260" cy="210" rx="12" ry="6" fill="#fda4af" opacity=".4"/>
+            <!-- Bot SVG Paths -->
+            <path class="b"
+              d="m135.9 285.1c-27.9-4.1-54-12.1-77.6-27.2-32.5-20.9-46.7-50.1-40.5-88.6 10.2-63.4 43.9-109.1 105.1-130 87.4-29.8 177.9 21.8 200 112 3.9 16 6 32.2 3.8 48.5-3.4 25.2-18.4 42.7-38.6 56.4-25.8 17.5-54.9 25.9-85.5 29.7-22.1 2.7-44.2 2.3-66.7-0.8zm-62.7-162.4c-13.7 14.4-19 32.1-20.3 51.4-1.9 25.8 9 44.3 31.7 56.2 3.5 1.8 7.2 3.5 10.9 4.9 30.1 11.2 61.5 12.6 93.1 11.2 22.7-0.9 45.1-4.3 66.1-13.7 27.9-12.6 39.4-32.8 36.2-63.2-2.9-27.5-15.2-49.1-40.5-61.9-7.2-3.6-15-6.6-22.8-8.4-33.1-7.8-66.4-7.8-99.8-2.5-20.4 3.3-39.2 10.3-54.6 26z"
+              fill="#fcfcfc" />
+            <path class="c"
+              d="m73.4 122.4c15.2-15.4 34-22.4 54.4-25.7 33.4-5.3 66.7-5.3 99.8 2.5 7.8 1.8 15.6 4.8 22.8 8.4 25.3 12.8 37.6 34.4 40.5 61.9 3.2 30.4-8.3 50.6-36.2 63.2-21 9.4-43.4 12.8-66.1 13.7-31.6 1.4-63 0-93.1-11.2-3.7-1.4-7.4-3.1-10.9-4.9-22.7-11.9-33.6-30.4-31.7-56.2 1.3-19.3 6.6-37 20.5-51.7zm22.1 47.7c-1.8 6.3-0.8 10.2 3.3 11.5 5.3 1.6 7.7-1.5 9.7-6 2.2-4.7 6.5-7.1 11.8-7.1 5.2 0 9.2 2.4 11.8 7 0.5 0.8 0.8 1.8 1.3 2.7 1.7 3.2 4.5 4.5 7.9 3.5 3.6-0.9 5.4-3.6 4.8-7.1-0.5-3-1.5-6.2-3.2-8.8-11.9-17.6-37-15.6-47.4 4.3zm128.9-16.2c-1.5 0.1-3 0-4.5 0.2-10.2 1.2-20.2 9.7-21.9 18.6-0.7 4 0.1 7.5 4.4 8.9 4.1 1.4 7.1-0.3 8.7-4.4 2.4-5.6 6.7-8.8 12.8-8.7 6 0.1 10.2 3.3 12.5 9 1.6 4.2 4.9 5.5 8.9 4 3.9-1.4 5.1-4.6 4.2-8.5-0.5-2.1-1.4-4.1-2.5-6-4.9-8.1-12.2-12.4-22.6-13.1z"
+              fill="#010202" />
+            <path class="d"
+              d="m95.6 169.8c10.3-19.6 35.4-21.6 47.3-4 1.7 2.6 2.7 5.8 3.2 8.8 0.6 3.5-1.2 6.2-4.8 7.1-3.4 1-6.2-0.3-7.9-3.5-0.5-0.9-0.8-1.9-1.3-2.7-2.6-4.6-6.6-7-11.8-7-5.3 0-9.6 2.4-11.8 7.1-2 4.5-4.4 7.6-9.7 6-4.1-1.3-5.1-5.2-3.2-11.8z"
+              fill="#4bb3ec" />
+            <path class="d"
+              d="m224.9 153.9c9.9 0.7 17.2 5 22.1 13.1 1.1 1.9 2 3.9 2.5 6 0.9 3.9-0.3 7.1-4.2 8.5-4 1.5-7.3 0.2-8.9-4-2.3-5.7-6.5-8.9-12.5-9-6.1-0.1-10.4 3.1-12.8 8.7-1.6 4.1-4.6 5.8-8.7 4.4-4.3-1.4-5.1-4.9-4.4-8.9 1.7-8.9 11.7-17.4 21.9-18.6 1.5-0.2 3-0.1 5-0.2z"
+              fill="#4bb3ec" />
+
+            <path class="anim-mouth" d="M132,220 Q172,225 212,220" fill="none" stroke="#fff" stroke-width="4"
+              stroke-linecap="round" />
           </g>
           <g clip-path="url(#mClipFv)">
             <g class="anim-paper-1">
-              <rect x="175" y="255" width="50" height="65" fill="white" rx="2" stroke="#e2e8f0" stroke-width="1"/>
-              <line x1="182" y1="270" x2="218" y2="270" stroke="#94a3b8" stroke-width="2"/>
-              <line x1="182" y1="280" x2="210" y2="280" stroke="#94a3b8" stroke-width="2"/>
-              <line x1="182" y1="290" x2="215" y2="290" stroke="#94a3b8" stroke-width="2"/>
+              <rect x="147" y="240" width="50" height="65" fill="white" rx="2" stroke="#e2e8f0" stroke-width="1" />
+              <line x1="154" y1="255" x2="190" y2="255" stroke="#94a3b8" stroke-width="2" />
+              <line x1="154" y1="265" x2="182" y2="265" stroke="#94a3b8" stroke-width="2" />
+              <line x1="154" y1="275" x2="187" y2="275" stroke="#94a3b8" stroke-width="2" />
             </g>
             <g class="anim-paper-2">
-              <rect x="185" y="255" width="45" height="60" fill="#f8fafc" rx="2" transform="rotate(5,207,285)" stroke="#e2e8f0" stroke-width="1"/>
-              <line x1="190" y1="270" x2="220" y2="270" stroke="#94a3b8" stroke-width="2" transform="rotate(5,207,285)"/>
-              <line x1="190" y1="280" x2="215" y2="280" stroke="#94a3b8" stroke-width="2" transform="rotate(5,207,285)"/>
+              <rect x="157" y="240" width="45" height="60" fill="#f8fafc" rx="2" transform="rotate(5,179,270)"
+                stroke="#e2e8f0" stroke-width="1" />
+              <line x1="162" y1="255" x2="192" y2="255" stroke="#94a3b8" stroke-width="2"
+                transform="rotate(5,179,270)" />
+              <line x1="162" y1="265" x2="187" y2="265" stroke="#94a3b8" stroke-width="2"
+                transform="rotate(5,179,270)" />
             </g>
           </g>
         </svg>
@@ -119,20 +164,29 @@
         <div class="sync-status-row">
           <!-- Idle bot: happy face -->
           <div class="bot-mini bot-idle">
-            <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+            <svg viewBox="0 0 344 344" xmlns="http://www.w3.org/2000/svg">
               <defs>
-                <radialGradient id="bIdleH" cx="50%" cy="40%" r="60%"><stop offset="0%" stop-color="#eaeff5"/><stop offset="100%" stop-color="#d5dce6"/></radialGradient>
-                <linearGradient id="bIdleV" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#2d3748"/><stop offset="100%" stop-color="#1a202c"/></linearGradient>
-                <filter id="bIdleSh" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="2" stdDeviation="4" flood-opacity=".10"/></filter>
+                <filter id="bIdleSh" x="-10%" y="-10%" width="120%" height="130%">
+                  <feDropShadow dx="0" dy="2" stdDeviation="4" flood-opacity=".10" />
+                </filter>
               </defs>
               <g class="bot-head" filter="url(#bIdleSh)">
-                <path d="M90,190 C90,110 140,80 200,80 C260,80 310,110 310,190 C310,260 270,310 200,310 C130,310 90,260 90,190Z" fill="url(#bIdleH)" stroke="#b8c4d0" stroke-width="3"/>
-                <path d="M120,180 C120,135 150,120 200,120 C250,120 280,135 280,180 C280,215 255,235 200,235 C145,235 120,215 120,180Z" fill="url(#bIdleV)"/>
-                <ellipse cx="165" cy="175" rx="18" ry="10" fill="#00d2ff" transform="rotate(-3,165,175)"/>
-                <ellipse cx="235" cy="175" rx="18" ry="10" fill="#00d2ff" transform="rotate(3,235,175)"/>
-                <path d="M160,255 Q200,275 240,255" fill="none" stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/>
-                <ellipse cx="140" cy="210" rx="12" ry="6" fill="#fda4af" opacity=".4"/>
-                <ellipse cx="260" cy="210" rx="12" ry="6" fill="#fda4af" opacity=".4"/>
+<!-- Bot SVG Paths -->
+<path class="a"
+  d="m172 334c-89.6 0-162-72.4-162-162 0-89.6 72.4-162 162-162 89.6 0 162 72.4 162 162 0 89.6-72.4 162-162 162z"
+  fill="#222" />
+<path class="b"
+  d="m135.9 285.1c-27.9-4.1-54-12.1-77.6-27.2-32.5-20.9-46.7-50.1-40.5-88.6 10.2-63.4 43.9-109.1 105.1-130 87.4-29.8 177.9 21.8 200 112 3.9 16 6 32.2 3.8 48.5-3.4 25.2-18.4 42.7-38.6 56.4-25.8 17.5-54.9 25.9-85.5 29.7-22.1 2.7-44.2 2.3-66.7-0.8zm-62.7-162.4c-13.7 14.4-19 32.1-20.3 51.4-1.9 25.8 9 44.3 31.7 56.2 3.5 1.8 7.2 3.5 10.9 4.9 30.1 11.2 61.5 12.6 93.1 11.2 22.7-0.9 45.1-4.3 66.1-13.7 27.9-12.6 39.4-32.8 36.2-63.2-2.9-27.5-15.2-49.1-40.5-61.9-7.2-3.6-15-6.6-22.8-8.4-33.1-7.8-66.4-7.8-99.8-2.5-20.4 3.3-39.2 10.3-54.6 26z"
+  fill="#fcfcfc" />
+<path class="c"
+  d="m73.4 122.4c15.2-15.4 34-22.4 54.4-25.7 33.4-5.3 66.7-5.3 99.8 2.5 7.8 1.8 15.6 4.8 22.8 8.4 25.3 12.8 37.6 34.4 40.5 61.9 3.2 30.4-8.3 50.6-36.2 63.2-21 9.4-43.4 12.8-66.1 13.7-31.6 1.4-63 0-93.1-11.2-3.7-1.4-7.4-3.1-10.9-4.9-22.7-11.9-33.6-30.4-31.7-56.2 1.3-19.3 6.6-37 20.5-51.7zm22.1 47.7c-1.8 6.3-0.8 10.2 3.3 11.5 5.3 1.6 7.7-1.5 9.7-6 2.2-4.7 6.5-7.1 11.8-7.1 5.2 0 9.2 2.4 11.8 7 0.5 0.8 0.8 1.8 1.3 2.7 1.7 3.2 4.5 4.5 7.9 3.5 3.6-0.9 5.4-3.6 4.8-7.1-0.5-3-1.5-6.2-3.2-8.8-11.9-17.6-37-15.6-47.4 4.3zm128.9-16.2c-1.5 0.1-3 0-4.5 0.2-10.2 1.2-20.2 9.7-21.9 18.6-0.7 4 0.1 7.5 4.4 8.9 4.1 1.4 7.1-0.3 8.7-4.4 2.4-5.6 6.7-8.8 12.8-8.7 6 0.1 10.2 3.3 12.5 9 1.6 4.2 4.9 5.5 8.9 4 3.9-1.4 5.1-4.6 4.2-8.5-0.5-2.1-1.4-4.1-2.5-6-4.9-8.1-12.2-12.4-22.6-13.1z"
+  fill="#010202" />
+<path class="d"
+  d="m95.6 169.8c10.3-19.6 35.4-21.6 47.3-4 1.7 2.6 2.7 5.8 3.2 8.8 0.6 3.5-1.2 6.2-4.8 7.1-3.4 1-6.2-0.3-7.9-3.5-0.5-0.9-0.8-1.9-1.3-2.7-2.6-4.6-6.6-7-11.8-7-5.3 0-9.6 2.4-11.8 7.1-2 4.5-4.4 7.6-9.7 6-4.1-1.3-5.1-5.2-3.2-11.8z"
+  fill="#4bb3ec" />
+<path class="d"
+  d="m224.9 153.9c9.9 0.7 17.2 5 22.1 13.1 1.1 1.9 2 3.9 2.5 6 0.9 3.9-0.3 7.1-4.2 8.5-4 1.5-7.3 0.2-8.9-4-2.3-5.7-6.5-8.9-12.5-9-6.1-0.1-10.4 3.1-12.8 8.7-1.6 4.1-4.6 5.8-8.7 4.4-4.3-1.4-5.1-4.9-4.4-8.9 1.7-8.9 11.7-17.4 21.9-18.6 1.5-0.2 3-0.1 5-0.2z"
+  fill="#4bb3ec" />
               </g>
             </svg>
           </div>
@@ -151,35 +205,45 @@
         <div class="sync-status-row">
           <!-- Eating bot: chewing animation -->
           <div class="bot-mini bot-eating">
-            <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+            <svg viewBox="0 0 344 344" xmlns="http://www.w3.org/2000/svg">
               <defs>
-                <radialGradient id="bEatH" cx="50%" cy="40%" r="60%"><stop offset="0%" stop-color="#eaeff5"/><stop offset="100%" stop-color="#d5dce6"/></radialGradient>
-                <linearGradient id="bEatV" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#2d3748"/><stop offset="100%" stop-color="#1a202c"/></linearGradient>
-                <clipPath id="mClip"><rect x="0" y="258" width="400" height="200"/></clipPath>
-                <filter id="bEatSh" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="2" stdDeviation="4" flood-opacity=".10"/></filter>
+                <clipPath id="mClip">
+                  <rect x="0" y="248" width="344" height="200" />
+                </clipPath>
+                <filter id="bEatSh" x="-10%" y="-10%" width="120%" height="130%">
+                  <feDropShadow dx="0" dy="2" stdDeviation="4" flood-opacity=".10" />
+                </filter>
               </defs>
               <g class="anim-head" filter="url(#bEatSh)">
-                <path d="M90,190 C90,110 140,80 200,80 C260,80 310,110 310,190 C310,260 270,310 200,310 C130,310 90,260 90,190Z" fill="url(#bEatH)" stroke="#b8c4d0" stroke-width="3"/>
-                <path d="M120,180 C120,135 150,120 200,120 C250,120 280,135 280,180 C280,215 255,235 200,235 C145,235 120,215 120,180Z" fill="url(#bEatV)"/>
-                <g class="anim-eye-glow">
-                  <ellipse cx="165" cy="175" rx="18" ry="10" fill="#00d2ff" transform="rotate(-3,165,175)"/>
-                  <ellipse cx="235" cy="175" rx="18" ry="10" fill="#00d2ff" transform="rotate(3,235,175)"/>
-                </g>
-                <path class="anim-mouth" d="M160,255 Q200,257 240,255" fill="none" stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/>
-                <ellipse cx="140" cy="210" rx="12" ry="6" fill="#fda4af" opacity=".4"/>
-                <ellipse cx="260" cy="210" rx="12" ry="6" fill="#fda4af" opacity=".4"/>
+                <path class="b"
+                  d="m135.9 285.1c-27.9-4.1-54-12.1-77.6-27.2-32.5-20.9-46.7-50.1-40.5-88.6 10.2-63.4 43.9-109.1 105.1-130 87.4-29.8 177.9 21.8 200 112 3.9 16 6 32.2 3.8 48.5-3.4 25.2-18.4 42.7-38.6 56.4-25.8 17.5-54.9 25.9-85.5 29.7-22.1 2.7-44.2 2.3-66.7-0.8zm-62.7-162.4c-13.7 14.4-19 32.1-20.3 51.4-1.9 25.8 9 44.3 31.7 56.2 3.5 1.8 7.2 3.5 10.9 4.9 30.1 11.2 61.5 12.6 93.1 11.2 22.7-0.9 45.1-4.3 66.1-13.7 27.9-12.6 39.4-32.8 36.2-63.2-2.9-27.5-15.2-49.1-40.5-61.9-7.2-3.6-15-6.6-22.8-8.4-33.1-7.8-66.4-7.8-99.8-2.5-20.4 3.3-39.2 10.3-54.6 26z"
+                  fill="#fcfcfc" />
+                <path class="c"
+                  d="m73.4 122.4c15.2-15.4 34-22.4 54.4-25.7 33.4-5.3 66.7-5.3 99.8 2.5 7.8 1.8 15.6 4.8 22.8 8.4 25.3 12.8 37.6 34.4 40.5 61.9 3.2 30.4-8.3 50.6-36.2 63.2-21 9.4-43.4 12.8-66.1 13.7-31.6 1.4-63 0-93.1-11.2-3.7-1.4-7.4-3.1-10.9-4.9-22.7-11.9-33.6-30.4-31.7-56.2 1.3-19.3 6.6-37 20.5-51.7zm22.1 47.7c-1.8 6.3-0.8 10.2 3.3 11.5 5.3 1.6 7.7-1.5 9.7-6 2.2-4.7 6.5-7.1 11.8-7.1 5.2 0 9.2 2.4 11.8 7 0.5 0.8 0.8 1.8 1.3 2.7 1.7 3.2 4.5 4.5 7.9 3.5 3.6-0.9 5.4-3.6 4.8-7.1-0.5-3-1.5-6.2-3.2-8.8-11.9-17.6-37-15.6-47.4 4.3zm128.9-16.2c-1.5 0.1-3 0-4.5 0.2-10.2 1.2-20.2 9.7-21.9 18.6-0.7 4 0.1 7.5 4.4 8.9 4.1 1.4 7.1-0.3 8.7-4.4 2.4-5.6 6.7-8.8 12.8-8.7 6 0.1 10.2 3.3 12.5 9 1.6 4.2 4.9 5.5 8.9 4 3.9-1.4 5.1-4.6 4.2-8.5-0.5-2.1-1.4-4.1-2.5-6-4.9-8.1-12.2-12.4-22.6-13.1z"
+                  fill="#010202" />
+                <path class="d"
+                  d="m95.6 169.8c10.3-19.6 35.4-21.6 47.3-4 1.7 2.6 2.7 5.8 3.2 8.8 0.6 3.5-1.2 6.2-4.8 7.1-3.4 1-6.2-0.3-7.9-3.5-0.5-0.9-0.8-1.9-1.3-2.7-2.6-4.6-6.6-7-11.8-7-5.3 0-9.6 2.4-11.8 7.1-2 4.5-4.4 7.6-9.7 6-4.1-1.3-5.1-5.2-3.2-11.8z"
+                  fill="#4bb3ec" />
+                <path class="d"
+                  d="m224.9 153.9c9.9 0.7 17.2 5 22.1 13.1 1.1 1.9 2 3.9 2.5 6 0.9 3.9-0.3 7.1-4.2 8.5-4 1.5-7.3 0.2-8.9-4-2.3-5.7-6.5-8.9-12.5-9-6.1-0.1-10.4 3.1-12.8 8.7-1.6 4.1-4.6 5.8-8.7 4.4-4.3-1.4-5.1-4.9-4.4-8.9 1.7-8.9 11.7-17.4 21.9-18.6 1.5-0.2 3-0.1 5-0.2z"
+                  fill="#4bb3ec" />
+                <path class="anim-mouth" d="M132,220 Q172,225 212,220" fill="none" stroke="#fff" stroke-width="4"
+                  stroke-linecap="round" />
               </g>
               <g clip-path="url(#mClip)">
                 <g class="anim-paper-1">
-                  <rect x="175" y="255" width="50" height="65" fill="white" rx="2" stroke="#e2e8f0" stroke-width="1"/>
-                  <line x1="182" y1="270" x2="218" y2="270" stroke="#94a3b8" stroke-width="2"/>
-                  <line x1="182" y1="280" x2="210" y2="280" stroke="#94a3b8" stroke-width="2"/>
-                  <line x1="182" y1="290" x2="215" y2="290" stroke="#94a3b8" stroke-width="2"/>
+                  <rect x="147" y="240" width="50" height="65" fill="white" rx="2" stroke="#e2e8f0" stroke-width="1" />
+                  <line x1="154" y1="255" x2="190" y2="255" stroke="#94a3b8" stroke-width="2" />
+                  <line x1="154" y1="265" x2="182" y2="265" stroke="#94a3b8" stroke-width="2" />
+                  <line x1="154" y1="275" x2="187" y2="275" stroke="#94a3b8" stroke-width="2" />
                 </g>
                 <g class="anim-paper-2">
-                  <rect x="185" y="255" width="45" height="60" fill="#f8fafc" rx="2" transform="rotate(5,207,285)" stroke="#e2e8f0" stroke-width="1"/>
-                  <line x1="190" y1="270" x2="220" y2="270" stroke="#94a3b8" stroke-width="2" transform="rotate(5,207,285)"/>
-                  <line x1="190" y1="280" x2="215" y2="280" stroke="#94a3b8" stroke-width="2" transform="rotate(5,207,285)"/>
+                  <rect x="157" y="240" width="45" height="60" fill="#f8fafc" rx="2" transform="rotate(5,179,270)"
+                    stroke="#e2e8f0" stroke-width="1" />
+                  <line x1="162" y1="255" x2="192" y2="255" stroke="#94a3b8" stroke-width="2"
+                    transform="rotate(5,179,270)" />
+                  <line x1="162" y1="265" x2="187" y2="265" stroke="#94a3b8" stroke-width="2"
+                    transform="rotate(5,179,270)" />
                 </g>
               </g>
             </svg>
@@ -209,21 +273,29 @@
     <div class="file-tree-container" id="file-tree-container">
       <div class="file-tree-empty" id="file-tree-empty">
         <div class="empty-bot">
-          <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" width="80" height="80">
+          <svg viewBox="0 0 344 344" xmlns="http://www.w3.org/2000/svg" width="80" height="80">
             <defs>
-              <radialGradient id="bEmptyH" cx="50%" cy="40%" r="60%"><stop offset="0%" stop-color="#eaeff5"/><stop offset="100%" stop-color="#d5dce6"/></radialGradient>
-              <linearGradient id="bEmptyV" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#2d3748"/><stop offset="100%" stop-color="#1a202c"/></linearGradient>
-              <filter id="bEmptySh" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="3" stdDeviation="6" flood-opacity=".12"/></filter>
+              <filter id="bEmptySh" x="-10%" y="-10%" width="120%" height="130%">
+                <feDropShadow dx="0" dy="3" stdDeviation="6" flood-opacity=".12" />
+              </filter>
             </defs>
-            <ellipse cx="200" cy="350" rx="90" ry="12" fill="rgba(0,0,0,0.08)"/>
+            <ellipse cx="172" cy="350" rx="90" ry="12" fill="rgba(0,0,0,0.08)" />
             <g filter="url(#bEmptySh)">
-              <path d="M90,190 C90,110 140,80 200,80 C260,80 310,110 310,190 C310,260 270,310 200,310 C130,310 90,260 90,190Z" fill="url(#bEmptyH)" stroke="#b8c4d0" stroke-width="3"/>
-              <path d="M120,180 C120,135 150,120 200,120 C250,120 280,135 280,180 C280,215 255,235 200,235 C145,235 120,215 120,180Z" fill="url(#bEmptyV)"/>
-              <ellipse cx="165" cy="175" rx="18" ry="10" fill="#00d2ff" transform="rotate(-3,165,175)"/>
-              <ellipse cx="235" cy="175" rx="18" ry="10" fill="#00d2ff" transform="rotate(3,235,175)"/>
-              <path d="M170,260 Q200,275 230,260" fill="none" stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/>
-              <ellipse cx="140" cy="210" rx="12" ry="6" fill="#fda4af" opacity=".4"/>
-              <ellipse cx="260" cy="210" rx="12" ry="6" fill="#fda4af" opacity=".4"/>
+              <path class="a"
+                d="m172 334c-89.6 0-162-72.4-162-162 0-89.6 72.4-162 162-162 89.6 0 162 72.4 162 162 0 89.6-72.4 162-162 162z"
+                fill="#222" />
+              <path class="b"
+                d="m135.9 285.1c-27.9-4.1-54-12.1-77.6-27.2-32.5-20.9-46.7-50.1-40.5-88.6 10.2-63.4 43.9-109.1 105.1-130 87.4-29.8 177.9 21.8 200 112 3.9 16 6 32.2 3.8 48.5-3.4 25.2-18.4 42.7-38.6 56.4-25.8 17.5-54.9 25.9-85.5 29.7-22.1 2.7-44.2 2.3-66.7-0.8zm-62.7-162.4c-13.7 14.4-19 32.1-20.3 51.4-1.9 25.8 9 44.3 31.7 56.2 3.5 1.8 7.2 3.5 10.9 4.9 30.1 11.2 61.5 12.6 93.1 11.2 22.7-0.9 45.1-4.3 66.1-13.7 27.9-12.6 39.4-32.8 36.2-63.2-2.9-27.5-15.2-49.1-40.5-61.9-7.2-3.6-15-6.6-22.8-8.4-33.1-7.8-66.4-7.8-99.8-2.5-20.4 3.3-39.2 10.3-54.6 26z"
+                fill="#fcfcfc" />
+              <path class="c"
+                d="m73.4 122.4c15.2-15.4 34-22.4 54.4-25.7 33.4-5.3 66.7-5.3 99.8 2.5 7.8 1.8 15.6 4.8 22.8 8.4 25.3 12.8 37.6 34.4 40.5 61.9 3.2 30.4-8.3 50.6-36.2 63.2-21 9.4-43.4 12.8-66.1 13.7-31.6 1.4-63 0-93.1-11.2-3.7-1.4-7.4-3.1-10.9-4.9-22.7-11.9-33.6-30.4-31.7-56.2 1.3-19.3 6.6-37 20.5-51.7zm22.1 47.7c-1.8 6.3-0.8 10.2 3.3 11.5 5.3 1.6 7.7-1.5 9.7-6 2.2-4.7 6.5-7.1 11.8-7.1 5.2 0 9.2 2.4 11.8 7 0.5 0.8 0.8 1.8 1.3 2.7 1.7 3.2 4.5 4.5 7.9 3.5 3.6-0.9 5.4-3.6 4.8-7.1-0.5-3-1.5-6.2-3.2-8.8-11.9-17.6-37-15.6-47.4 4.3zm128.9-16.2c-1.5 0.1-3 0-4.5 0.2-10.2 1.2-20.2 9.7-21.9 18.6-0.7 4 0.1 7.5 4.4 8.9 4.1 1.4 7.1-0.3 8.7-4.4 2.4-5.6 6.7-8.8 12.8-8.7 6 0.1 10.2 3.3 12.5 9 1.6 4.2 4.9 5.5 8.9 4 3.9-1.4 5.1-4.6 4.2-8.5-0.5-2.1-1.4-4.1-2.5-6-4.9-8.1-12.2-12.4-22.6-13.1z"
+                fill="#010202" />
+              <path class="d"
+                d="m95.6 169.8c10.3-19.6 35.4-21.6 47.3-4 1.7 2.6 2.7 5.8 3.2 8.8 0.6 3.5-1.2 6.2-4.8 7.1-3.4 1-6.2-0.3-7.9-3.5-0.5-0.9-0.8-1.9-1.3-2.7-2.6-4.6-6.6-7-11.8-7-5.3 0-9.6 2.4-11.8 7.1-2 4.5-4.4 7.6-9.7 6-4.1-1.3-5.1-5.2-3.2-11.8z"
+                fill="#4bb3ec" />
+              <path class="d"
+                d="m224.9 153.9c9.9 0.7 17.2 5 22.1 13.1 1.1 1.9 2 3.9 2.5 6 0.9 3.9-0.3 7.1-4.2 8.5-4 1.5-7.3 0.2-8.9-4-2.3-5.7-6.5-8.9-12.5-9-6.1-0.1-10.4 3.1-12.8 8.7-1.6 4.1-4.6 5.8-8.7 4.4-4.3-1.4-5.1-4.9-4.4-8.9 1.7-8.9 11.7-17.4 21.9-18.6 1.5-0.2 3-0.1 5-0.2z"
+                fill="#4bb3ec" />
             </g>
           </svg>
         </div>
@@ -246,7 +318,11 @@
       <div class="mcp-client-card" data-client="vscode">
         <div class="mcp-client-info">
           <div class="mcp-client-icon vscode">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M17 2l5 3.5v13L17 22l-10-7.5L3 17.5l-2-1.5V8L3 6.5l4 3L17 2z" fill="#007ACC"/><path d="M17 2L7 9.5l-4-3L1 8v8l2 1.5 4-3 10 7.5 5-3.5v-13L17 2zm0 3.5v13L7.5 12 17 5.5z" fill="#1F9CF0" opacity=".8"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M17 2l5 3.5v13L17 22l-10-7.5L3 17.5l-2-1.5V8L3 6.5l4 3L17 2z" fill="#007ACC" />
+              <path d="M17 2L7 9.5l-4-3L1 8v8l2 1.5 4-3 10 7.5 5-3.5v-13L17 2zm0 3.5v13L7.5 12 17 5.5z" fill="#1F9CF0"
+                opacity=".8" />
+            </svg>
           </div>
           <div class="mcp-client-text">
             <span class="mcp-client-name">VS Code</span>
@@ -260,7 +336,10 @@
       <div class="mcp-client-card" data-client="cursor">
         <div class="mcp-client-info">
           <div class="mcp-client-icon cursor">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="3" fill="#000"/><path d="M8 12l3 3 5-5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <rect x="3" y="3" width="18" height="18" rx="3" fill="#000" />
+              <path d="M8 12l3 3 5-5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
           </div>
           <div class="mcp-client-text">
             <span class="mcp-client-name">Cursor</span>
@@ -274,7 +353,12 @@
       <div class="mcp-client-card" data-client="claude-desktop">
         <div class="mcp-client-info">
           <div class="mcp-client-icon claude">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#D97757"/><path d="M8 14c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/><circle cx="9.5" cy="10" r="1" fill="#fff"/><circle cx="14.5" cy="10" r="1" fill="#fff"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" fill="#D97757" />
+              <path d="M8 14c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke="#fff" stroke-width="1.5" stroke-linecap="round" />
+              <circle cx="9.5" cy="10" r="1" fill="#fff" />
+              <circle cx="14.5" cy="10" r="1" fill="#fff" />
+            </svg>
           </div>
           <div class="mcp-client-text">
             <span class="mcp-client-name">Claude Desktop</span>
@@ -291,7 +375,11 @@
       <div class="mcp-client-card" data-client="claude-code">
         <div class="mcp-client-info">
           <div class="mcp-client-icon claude-code">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="2" y="4" width="20" height="16" rx="2" fill="#1a1a2e"/><path d="M6 10l3 3-3 3M12 16h5" stroke="#D97757" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <rect x="2" y="4" width="20" height="16" rx="2" fill="#1a1a2e" />
+              <path d="M6 10l3 3-3 3M12 16h5" stroke="#D97757" stroke-width="1.5" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
           </div>
           <div class="mcp-client-text">
             <span class="mcp-client-name">Claude Code</span>
@@ -299,7 +387,11 @@
           </div>
         </div>
         <button class="mcp-copy-btn" data-client="claude-code" title="Copy command">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="5" y="5" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.3"/><path d="M11 5V3.5A1.5 1.5 0 009.5 2h-6A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5" stroke="currentColor" stroke-width="1.3"/></svg>
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+            <rect x="5" y="5" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.3" />
+            <path d="M11 5V3.5A1.5 1.5 0 009.5 2h-6A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5" stroke="currentColor"
+              stroke-width="1.3" />
+          </svg>
           Copy
         </button>
       </div>
@@ -308,7 +400,11 @@
       <div class="mcp-client-card" data-client="opencode">
         <div class="mcp-client-info">
           <div class="mcp-client-icon opencode">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="2" y="4" width="20" height="16" rx="2" fill="#0f172a"/><path d="M7 10l-3 3 3 3M17 10l3 3-3 3M13 8l-2 8" stroke="#38bdf8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <rect x="2" y="4" width="20" height="16" rx="2" fill="#0f172a" />
+              <path d="M7 10l-3 3 3 3M17 10l3 3-3 3M13 8l-2 8" stroke="#38bdf8" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
           </div>
           <div class="mcp-client-text">
             <span class="mcp-client-name">OpenCode</span>
@@ -316,7 +412,11 @@
           </div>
         </div>
         <button class="mcp-copy-btn" data-client="opencode" title="Copy command">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="5" y="5" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.3"/><path d="M11 5V3.5A1.5 1.5 0 009.5 2h-6A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5" stroke="currentColor" stroke-width="1.3"/></svg>
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+            <rect x="5" y="5" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.3" />
+            <path d="M11 5V3.5A1.5 1.5 0 009.5 2h-6A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5" stroke="currentColor"
+              stroke-width="1.3" />
+          </svg>
           Copy
         </button>
       </div>
@@ -325,7 +425,11 @@
       <div class="mcp-client-card" data-client="windsurf">
         <div class="mcp-client-info">
           <div class="mcp-client-icon windsurf">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#06b6d4"/><path d="M7 15c2-4 4-6 5-8 1 2 3 4 5 8" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" fill="#06b6d4" />
+              <path d="M7 15c2-4 4-6 5-8 1 2 3 4 5 8" stroke="#fff" stroke-width="1.5" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
           </div>
           <div class="mcp-client-text">
             <span class="mcp-client-name">Windsurf</span>
@@ -333,7 +437,11 @@
           </div>
         </div>
         <button class="mcp-copy-btn" data-client="windsurf" title="Copy command">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="5" y="5" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.3"/><path d="M11 5V3.5A1.5 1.5 0 009.5 2h-6A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5" stroke="currentColor" stroke-width="1.3"/></svg>
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+            <rect x="5" y="5" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.3" />
+            <path d="M11 5V3.5A1.5 1.5 0 009.5 2h-6A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5" stroke="currentColor"
+              stroke-width="1.3" />
+          </svg>
           Copy
         </button>
       </div>
@@ -345,7 +453,11 @@
       <div class="mcp-url-value">
         <code id="mcp-url">http://localhost:23847/mcp</code>
         <button class="mcp-url-copy" id="mcp-url-copy" title="Copy URL">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="5" y="5" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.3"/><path d="M11 5V3.5A1.5 1.5 0 009.5 2h-6A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5" stroke="currentColor" stroke-width="1.3"/></svg>
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+            <rect x="5" y="5" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.3" />
+            <path d="M11 5V3.5A1.5 1.5 0 009.5 2h-6A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5" stroke="currentColor"
+              stroke-width="1.3" />
+          </svg>
         </button>
       </div>
     </div>
@@ -452,7 +564,7 @@
       duration = duration || 2000;
       toast.textContent = message;
       toast.classList.add('visible');
-      setTimeout(function() { toast.classList.remove('visible'); }, duration);
+      setTimeout(function () { toast.classList.remove('visible'); }, duration);
     }
 
     // ── File tree building ─────────────────────────
@@ -513,7 +625,7 @@
       }
 
       // Files (sorted by indexedAt, newest first)
-      var sortedDocs = node._docs.slice().sort(function(a, b) { return b.indexedAt - a.indexedAt; });
+      var sortedDocs = node._docs.slice().sort(function (a, b) { return b.indexedAt - a.indexedAt; });
       for (var di = 0; di < sortedDocs.length; di++) {
         var doc = sortedDocs[di];
         var fName = basename(doc.relativePath);
@@ -525,6 +637,7 @@
         html += statusIcon(doc);
         html += '<span class="tree-meta">' + timeAgo(doc.indexedAt) + '</span>';
         html += '<span class="tree-meta">' + formatSize(doc.fileSize) + '</span>';
+        if (doc.chunkCount) { html += '<span class="tree-chunks">' + doc.chunkCount + ' chunks</span>'; }
         html += '</div>';
         html += '</li>';
       }
@@ -562,7 +675,7 @@
       }
 
       // Root-level files
-      var rootDocs = tree._docs.slice().sort(function(a, b) { return b.indexedAt - a.indexedAt; });
+      var rootDocs = tree._docs.slice().sort(function (a, b) { return b.indexedAt - a.indexedAt; });
       for (var ri = 0; ri < rootDocs.length; ri++) {
         var rDoc = rootDocs[ri];
         var rName = basename(rDoc.relativePath);
@@ -573,6 +686,7 @@
         html += statusIcon(rDoc);
         html += '<span class="tree-meta">' + timeAgo(rDoc.indexedAt) + '</span>';
         html += '<span class="tree-meta">' + formatSize(rDoc.fileSize) + '</span>';
+        if (rDoc.chunkCount) { html += '<span class="tree-chunks">' + rDoc.chunkCount + ' chunks</span>'; }
         html += '</div>';
         html += '</li>';
       }
@@ -584,7 +698,7 @@
     function attachTreeToggles() {
       var rows = fileTree.querySelectorAll('[data-toggle]');
       for (var i = 0; i < rows.length; i++) {
-        rows[i].addEventListener('click', function() {
+        rows[i].addEventListener('click', function () {
           var li = this.closest('.tree-folder');
           var children = li.querySelector('.tree-children');
           var toggle = this.querySelector('.tree-toggle');
@@ -650,7 +764,7 @@
     function showSyncIdle() {
       // Debounce: wait 400ms before actually reverting, in case another file starts
       if (idleDebounceTimer) clearTimeout(idleDebounceTimer);
-      idleDebounceTimer = setTimeout(function() {
+      idleDebounceTimer = setTimeout(function () {
         idleDebounceTimer = null;
         tabFiles.classList.remove('syncing');
         syncIdle.style.display = 'flex';
@@ -687,31 +801,54 @@
     }
 
     // ── Tab switching ──────────────────────────────
-    document.querySelectorAll('.tab').forEach(function(tab) {
-      tab.addEventListener('click', function() {
-        document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
-        document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+    document.querySelectorAll('.tab').forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        document.querySelectorAll('.tab').forEach(function (t) { t.classList.remove('active'); });
+        document.querySelectorAll('.tab-content').forEach(function (c) { c.classList.remove('active'); });
         tab.classList.add('active');
         document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
       });
     });
 
     // ── Open folder buttons ────────────────────────
-    document.getElementById('open-folder-btn').addEventListener('click', function() {
+    document.getElementById('open-folder-btn').addEventListener('click', function () {
       if (dropFolder) window.nomnom.openDropFolder(dropFolder);
     });
-    document.getElementById('empty-open-btn').addEventListener('click', function() {
+    document.getElementById('empty-open-btn').addEventListener('click', function () {
       if (dropFolder) window.nomnom.openDropFolder(dropFolder);
     });
 
     // ── MCP install buttons ────────────────────────
-    document.querySelectorAll('.mcp-install-btn').forEach(function(btn) {
-      btn.addEventListener('click', function() {
+    document.querySelectorAll('.mcp-install-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
         var client = btn.dataset.client;
+        var port = mcpPort || 23847;
+        var mcpEndpoint = 'http://localhost:' + port + '/mcp';
+
+        if (client === 'vscode') {
+          // VS Code deep link — opens the MCP install dialog in VS Code
+          var vsConfig = JSON.stringify({ type: 'http', url: mcpEndpoint });
+          var vsDeeplink = 'https://vscode.dev/redirect/mcp/install?name=nomnomdrive&config=' + encodeURIComponent(vsConfig);
+          window.nomnom.openExternalUrl(vsDeeplink);
+          showToast('Opening VS Code installer…');
+          return;
+        }
+
+        if (client === 'cursor') {
+          // Cursor deep link — opens the MCP install dialog in Cursor
+          var cursorConfig = JSON.stringify({ url: mcpEndpoint });
+          var cursorConfigB64 = window.btoa(cursorConfig);
+          var cursorDeeplink = 'cursor://anysphere.cursor-deeplink/mcp/install?name=nomnomdrive&config=' + cursorConfigB64;
+          window.nomnom.openExternalUrl(cursorDeeplink);
+          showToast('Opening Cursor installer…');
+          return;
+        }
+
+        // claude-desktop: patch the config file directly
         btn.disabled = true;
         btn.textContent = 'Installing…';
         btn.classList.add('loading');
-        window.nomnom.registerMcpClient(client).then(function(result) {
+        window.nomnom.registerMcpClient(client).then(function (result) {
           if (result.registered) {
             btn.textContent = 'Installed ✓';
             btn.classList.remove('loading');
@@ -723,16 +860,16 @@
             btn.classList.add('not-found');
             showToast(result.client + ' config dir not detected');
           }
-          setTimeout(function() {
+          setTimeout(function () {
             btn.disabled = false;
             btn.classList.remove('installed', 'not-found');
             btn.textContent = 'Install';
           }, 3000);
-        }).catch(function(e) {
+        }).catch(function (e) {
           btn.textContent = 'Error';
           btn.classList.remove('loading');
           showToast('Failed: ' + e.message);
-          setTimeout(function() {
+          setTimeout(function () {
             btn.disabled = false;
             btn.textContent = 'Install';
           }, 3000);
@@ -742,34 +879,34 @@
 
     // ── MCP copy buttons ───────────────────────────
     var mcpCommands = {
-      'claude-code': 'claude mcp add nomnomdrive --transport sse http://localhost:{PORT}/mcp',
-      'opencode': '{\n  "mcpServers": {\n    "nomnomdrive": { "url": "http://localhost:{PORT}/mcp" }\n  }\n}',
-      'windsurf': '{\n  "mcpServers": {\n    "nomnomdrive": { "url": "http://localhost:{PORT}/mcp" }\n  }\n}',
+      'claude-code': 'claude mcp add --transport http nomnomdrive http://localhost:{PORT}/mcp',
+      'opencode': '{\n  "$schema": "https://opencode.ai/config.json",\n  "mcp": {\n    "nomnomdrive": {\n      "type": "remote",\n      "url": "http://localhost:{PORT}/mcp"\n    }\n  }\n}',
+      'windsurf': '{\n  "mcpServers": {\n    "nomnomdrive": {\n      "url": "http://localhost:{PORT}/mcp"\n    }\n  }\n}',
     };
 
-    document.querySelectorAll('.mcp-copy-btn').forEach(function(btn) {
-      btn.addEventListener('click', function() {
+    document.querySelectorAll('.mcp-copy-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
         var client = btn.dataset.client;
         var cmd = mcpCommands[client] || '';
         cmd = cmd.replace(/\{PORT\}/g, mcpPort || '23847');
-        navigator.clipboard.writeText(cmd).then(function() {
+        navigator.clipboard.writeText(cmd).then(function () {
           var origHtml = btn.innerHTML;
           btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M4 8l3 3 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Copied!';
           showToast('Copied to clipboard');
-          setTimeout(function() { btn.innerHTML = origHtml; }, 2000);
+          setTimeout(function () { btn.innerHTML = origHtml; }, 2000);
         });
       });
     });
 
     // MCP URL copy
-    document.getElementById('mcp-url-copy').addEventListener('click', function() {
-      navigator.clipboard.writeText(mcpUrl.textContent).then(function() {
+    document.getElementById('mcp-url-copy').addEventListener('click', function () {
+      navigator.clipboard.writeText(mcpUrl.textContent).then(function () {
         showToast('MCP URL copied');
       });
     });
 
     // ── IPC Events ─────────────────────────────────
-    window.nomnom.onConfig(function(config) {
+    window.nomnom.onConfig(function (config) {
       dropFolder = config.dropFolder;
       mcpPort = config.mcpPort;
 
@@ -783,26 +920,26 @@
       }
 
       // Load initial data
-      window.nomnom.getDocuments().then(function(docs) {
+      window.nomnom.getDocuments().then(function (docs) {
         documents = docs;
         renderFileTree();
       });
-      window.nomnom.getStats().then(function(s) {
+      window.nomnom.getStats().then(function (s) {
         stats = s;
         updateStats();
       });
     });
 
-    window.nomnom.onModelReady(function() {
+    window.nomnom.onModelReady(function () {
       // Model loaded
     });
 
-    window.nomnom.onIndexingProgress(function(data) {
+    window.nomnom.onIndexingProgress(function (data) {
       isIndexing = true;
       showSyncActive(data.filePath, data.phase, data.chunksProcessed, data.chunksTotal, data.queueLength || 0);
     });
 
-    window.nomnom.onIndexingComplete(function(data) {
+    window.nomnom.onIndexingComplete(function (data) {
       isIndexing = false;
 
       // Push the just-completed file into history
@@ -815,26 +952,37 @@
       showSyncIdle();
 
       // Refresh data
-      window.nomnom.getDocuments().then(function(docs) {
+      window.nomnom.getDocuments().then(function (docs) {
         documents = docs;
         renderFileTree();
       });
-      window.nomnom.getStats().then(function(s) {
+      window.nomnom.getStats().then(function (s) {
         stats = s;
         updateStats();
       });
     });
 
-    window.nomnom.onIndexingError(function(data) {
+    window.nomnom.onIndexingError(function (data) {
       isIndexing = false;
       showSyncIdle();
 
-      var existing = documents.find(function(d) { return data.filePath.endsWith(d.relativePath); });
+      var existing = documents.find(function (d) { return data.filePath.endsWith(d.relativePath); });
       if (existing) {
         existing._syncing = false;
         existing._error = true;
         renderFileTree();
       }
+    });
+
+    window.nomnom.onIndexingDeleted(function (_data) {
+      window.nomnom.getDocuments().then(function (docs) {
+        documents = docs;
+        renderFileTree();
+      });
+      window.nomnom.getStats().then(function (s) {
+        stats = s;
+        updateStats();
+      });
     });
 
     // Refresh time-ago every 30s
@@ -845,4 +993,5 @@
     updateStats();
   </script>
 </body>
+
 </html>

@@ -18,6 +18,9 @@ contextBridge.exposeInMainWorld('nomnom', {
   onIndexingError: (cb: (data: { filePath: string; error: string }) => void) =>
     ipcRenderer.on('indexing:error', (_e, data) => cb(data)),
 
+  onIndexingDeleted: (cb: (data: { filePath: string }) => void) =>
+    ipcRenderer.on('indexing:deleted', (_e, data) => cb(data)),
+
   onModelReady: (cb: () => void) =>
     ipcRenderer.on('model:ready', () => cb()),
 
@@ -28,6 +31,9 @@ contextBridge.exposeInMainWorld('nomnom', {
   openDropFolder: (folderPath: string) =>
     ipcRenderer.send('open-drop-folder', folderPath),
 
+  openExternalUrl: (url: string) =>
+    ipcRenderer.send('open-external-url', url),
+
   // ── Data requests ────────────────────────────────
   getDocuments: (): Promise<
     Array<{
@@ -36,6 +42,7 @@ contextBridge.exposeInMainWorld('nomnom', {
       fileType: string;
       indexedAt: number;
       folderId: string;
+      chunkCount: number;
     }>
   > => ipcRenderer.invoke('get-documents'),
 

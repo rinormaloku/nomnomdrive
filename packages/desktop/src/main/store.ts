@@ -287,7 +287,8 @@ export class Store {
       );
       stmtDeleteLinks.run(doc.docId);
 
-      for (const chunk of doc.chunks) {
+      for (let i = 0; i < doc.chunks.length; i++) {
+        const chunk = doc.chunks[i];
         if (chunk.embedding !== null) {
           // New chunk: insert into chunks table, then into vec_chunks.
           // vec_chunks rowid MUST be bound as SQLITE_INTEGER — BigInt ensures
@@ -300,7 +301,7 @@ export class Store {
           );
         }
         // (Re-)establish the doc → chunk link
-        stmtInsertLink.run(doc.docId, chunk.chunkId, doc.chunks.indexOf(chunk));
+        stmtInsertLink.run(doc.docId, chunk.chunkId, i);
       }
     });
 
@@ -369,13 +370,18 @@ export class Store {
     return rows.map((r) => r.content).join('\n\n');
   }
 
-  async getAllDocuments(): Promise<DocumentRecord[]> {
+  async getAllDocuments(): Promise<(DocumentRecord & { chunkCount: number })[]> {
     const rows = this.db.prepare(`
-      SELECT doc_id, folder_id, relative_path, content_hash, file_size, file_type, indexed_at
-      FROM documents
+      SELECT d.doc_id, d.folder_id, d.relative_path, d.content_hash,
+             d.file_size, d.file_type, d.indexed_at,
+             COUNT(dc.chunk_id) AS chunk_count
+      FROM documents d
+      LEFT JOIN doc_chunks dc ON dc.doc_id = d.doc_id
+      GROUP BY d.doc_id
     `).all() as Array<{
       doc_id: string; folder_id: string; relative_path: string;
-      content_hash: string; file_size: number; file_type: string; indexed_at: number;
+      content_hash: string; file_size: number; file_type: string;
+      indexed_at: number; chunk_count: number;
     }>;
     return rows.map((r) => ({
       docId:        r.doc_id,
@@ -385,6 +391,7 @@ export class Store {
       fileSize:     r.file_size,
       fileType:     r.file_type,
       indexedAt:    r.indexed_at,
+      chunkCount:   r.chunk_count,
     }));
   }
 

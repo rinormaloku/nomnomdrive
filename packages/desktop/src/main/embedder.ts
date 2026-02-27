@@ -21,24 +21,33 @@ export class Embedder {
   private context: LlamaContext | null = null;
   private modelPath: string | null = null;
   private readonly config: AppConfig;
+  /** Resolves when the model is ready; null if initialize() has not been called. */
+  private readyPromise: Promise<void> | null = null;
 
   constructor(config: AppConfig) {
     this.config = config;
   }
 
   async initialize(onProgress?: (downloaded: number, total: number) => void): Promise<void> {
-    this.modelPath = await resolveModelPath(this.config.model.localEmbed, onProgress);
+    this.readyPromise = (async () => {
+      this.modelPath = await resolveModelPath(this.config.model.localEmbed, onProgress);
 
-    // Use native runtime import so CommonJS transpilation does not rewrite to require()
-    const { getLlama } = await (0, eval)('import("node-llama-cpp")');
-    this.llama = (await getLlama()) as unknown as Llama;
-    this.model = await this.llama.loadModel({ modelPath: this.modelPath });
-    this.context = await this.model.createEmbeddingContext();
+      // Use native runtime import so CommonJS transpilation does not rewrite to require()
+      const { getLlama } = await (0, eval)('import("node-llama-cpp")');
+      this.llama = (await getLlama()) as unknown as Llama;
+      this.model = await this.llama.loadModel({ modelPath: this.modelPath });
+      this.context = await this.model.createEmbeddingContext();
+    })();
+    return this.readyPromise;
   }
 
   async getEmbedding(text: string): Promise<number[]> {
-    if (!this.context) throw new Error('Embedder not initialized');
-    const result = await this.context.getEmbeddingFor(text);
+    // If the model is still loading, wait for it instead of failing immediately.
+    if (!this.context) {
+      if (!this.readyPromise) throw new Error('Embedder not initialized');
+      await this.readyPromise;
+    }
+    const result = await this.context!.getEmbeddingFor(text);
     return Array.from(result.vector);
   }
 

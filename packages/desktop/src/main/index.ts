@@ -235,8 +235,16 @@ emitter.on('indexing:error', (data: { filePath: string; error: string }) => {
   popupWindow?.webContents.send('indexing:error', data);
 });
 
+emitter.on('indexing:deleted', (data: { filePath: string }) => {
+  popupWindow?.webContents.send('indexing:deleted', data);
+});
+
 ipcMain.on('open-drop-folder', (_event, folderPath: string) => {
   shell.openPath(folderPath);
+});
+
+ipcMain.on('open-external-url', (_event, url: string) => {
+  shell.openExternal(url);
 });
 
 // ─── IPC handlers for renderer data requests ──────────────────────────────────
@@ -296,6 +304,7 @@ app.whenReady().then(async () => {
       fileType: d.fileType,
       indexedAt: d.indexedAt,
       folderId: d.folderId,
+      chunkCount: d.chunkCount,
     }));
   });
 
