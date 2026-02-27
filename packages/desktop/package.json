@@ -1,0 +1,45 @@
+{
+  "name": "@nomnomdrive/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/main/index.js",
+  "bin": {
+    "nomnomdrive": "dist/cli/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && pnpm copy-renderer",
+    "copy-renderer": "mkdir -p dist/renderer && cp -r src/renderer/* dist/renderer/",
+    "dev": "pnpm build && electron .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dist": "pnpm build && electron-builder",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^7.0.0",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@nomnomdrive/shared": "workspace:*",
+    "better-sqlite3": "^12.6.2",
+    "chokidar": "^4.0.0",
+    "commander": "^12.0.0",
+    "electron-updater": "^6.0.0",
+    "fast-glob": "^3.3.0",
+    "mammoth": "^1.8.0",
+    "node-llama-cpp": "^3.0.0",
+    "officeparser": "^6.0.0",
+    "pdf-parse": "^1.1.1",
+    "picomatch": "^4.0.0",
+    "sqlite-vec": "0.1.7-alpha.2",
+    "word-extractor": "^1.0.4",
+    "yaml": "^2.7.0",
+    "zod": "^4.3.5"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^3.0.0",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.0.0",
+    "electron": "^34.0.0",
+    "electron-builder": "^25.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.7.0"
+  }
+}

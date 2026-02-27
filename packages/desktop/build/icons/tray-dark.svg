@@ -1,0 +1,21 @@
+<!-- NomNomDrive tray icon – dark variant (white, for dark taskbar/menu bar)
+     Document shape with a circular bite arc on the right side ("nomnom"!).
+     Arc entry/exit at x=12: y=7.73 and y=14.27 (circle cx=13.5 cy=11 r=3.6). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <!-- Document body including bite arc (counter-clockwise = curves left) -->
+  <path fill="white"
+    d="M 2 1
+       L 9 1
+       L 9 4
+       L 12 4
+       L 12 7.73
+       A 3.6 3.6 0 0 0 12 14.27
+       L 12 15
+       L 2 15
+       Z"/>
+  <!-- Fold crease triangle -->
+  <path fill="white" fill-opacity="0.38" d="M 9 1 L 12 4 L 9 4 Z"/>
+  <!-- Content lines -->
+  <rect fill="white" fill-opacity="0.85" x="4" y="6" width="5.5" height="1" rx="0.5"/>
+  <rect fill="white" fill-opacity="0.85" x="4" y="8" width="3.5" height="1" rx="0.5"/>
+</svg>

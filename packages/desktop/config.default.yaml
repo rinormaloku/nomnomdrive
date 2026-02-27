@@ -1,0 +1,12 @@
+mode: local
+
+watch:
+  paths:
+    - ~/Documents/NomNomDrive
+  glob: "**/*"
+
+model:
+  local_embed: "hf:unsloth/embeddinggemma-300m-GGUF"
+
+mcp:
+  port: 23847

@@ -1,0 +1,21 @@
+{
+  "name": "nomnomdrive",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "pnpm --filter @nomnomdrive/shared build && pnpm --filter @nomnomdrive/desktop build",
+    "dev": "pnpm --filter @nomnomdrive/shared build && pnpm --filter @nomnomdrive/desktop dev",
+    "cli": "node packages/desktop/dist/cli/index.js",
+    "nomnomdrive": "node packages/desktop/dist/cli/index.js",
+    "lint": "eslint packages/*/src --ext .ts",
+    "typecheck": "pnpm -r typecheck",
+    "clean": "pnpm -r exec rm -rf dist"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.7.0"
+  }
+}

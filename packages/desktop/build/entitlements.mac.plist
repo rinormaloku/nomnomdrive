@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <!-- Required for V8 JIT compilation -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+
+    <!-- Required for V8 to mark pages as executable -->
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+
+    <!--
+      Required for loading SQLite extensions (sqlite-vec vec0.dylib) and
+      native Node.js addons (better-sqlite3, node-llama-cpp) that are signed
+      by electron-builder but may not share the exact same team certificate
+      as the app shell. This is the standard entitlement used by Electron apps
+      that load native extensions at runtime.
+    -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+  </dict>
+</plist>
