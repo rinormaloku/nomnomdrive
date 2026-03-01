@@ -55,6 +55,9 @@ module.exports = {
     allowToChangeInstallationDirectory: true,
   },
 
-  // publish is configured via CLI: --publish always -c.publish.provider=github
-  // Kept out of static config to avoid electron-builder v25 channel bug with --publish never
+  // Must be explicit null (not undefined/omitted) so electron-builder skips
+  // update info generation. Without this, GH_TOKEN in CI triggers auto-detection
+  // which fails when the repository can't be resolved from .git/config.
+  // For tag releases, the workflow overrides via CLI: -c.publish.provider=github
+  publish: null,
 };
