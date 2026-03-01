@@ -4,6 +4,7 @@
   "private": true,
   "description": "Local AI-powered document search and chat",
   "author": "NomNomDrive",
+  "repository": "github:rinormaloku/nomnomdrive",
   "main": "dist/main/index.js",
   "bin": {
     "nomnomdrive": "dist/cli/index.js"

@@ -65,7 +65,7 @@ jobs:
       - name: Build and publish
         if: startsWith(github.ref, 'refs/tags/')
         working-directory: packages/desktop
-        run: pnpm dist --publish always -c.publish.provider=github -c.publish.releaseType=release
+        run: pnpm dist --publish always -c.publish.provider=github
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_LLAMA_CPP_SKIP_DOWNLOAD: 'true'
