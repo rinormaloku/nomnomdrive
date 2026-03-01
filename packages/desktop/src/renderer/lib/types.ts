@@ -34,3 +34,45 @@ export type ProcessedFile = {
   path: string;
   time: number;
 };
+
+// ── Setup / Onboarding types ────────────────────────
+
+export type ModelOption = {
+  id: string;
+  label: string;
+  size: string;
+  recommended: boolean;
+};
+
+export type SetupStatusData = {
+  needsSetup: boolean;
+  needsModelDownload: boolean;
+  existingConfig?: unknown;
+  missingModels?: { embed: boolean; chat: boolean };
+};
+
+export type SetupProgressData = {
+  phase: string;
+  modelId: string;
+  modelLabel: string;
+  downloaded: number;
+  total: number;
+};
+
+export type SetupCatalog = {
+  embedModels: ModelOption[];
+  chatModels: ModelOption[];
+  defaults: {
+    watchPath: string;
+    embedModelId: string;
+    chatModelId: string;
+    mcpPort: number;
+  };
+};
+
+export type SetupStoreState = {
+  needsSetup: boolean;
+  needsModelDownload: boolean;
+  checked: boolean;
+  error?: string;
+};

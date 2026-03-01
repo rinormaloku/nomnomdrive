@@ -4,12 +4,17 @@ import * as os from 'os';
 import { confirm, input, select } from '@inquirer/prompts';
 import {
   loadConfig,
-  saveConfig,
   getDefaultDropFolder,
   type AppConfig,
-} from '../../main/config';
-import { Store } from '../../main/store';
-import { DEFAULT_EMBED_MODEL, DEFAULT_CHAT_MODEL, DEFAULT_MCP_PORT } from '@nomnomdrive/shared';
+  EMBED_MODELS,
+  CHAT_MODELS,
+  MODEL_CUSTOM,
+  MODEL_SKIP,
+  runSetup,
+  type SetupProgress,
+  DEFAULT_MCP_PORT,
+  registerMcpClients,
+} from '@nomnomdrive/shared';
 
 export function initCommand(): Command {
   return new Command('init')
@@ -23,7 +28,7 @@ export function initCommand(): Command {
       console.log('  · Register NomNomDrive as an MCP server in Claude Desktop / Cursor\n');
 
       // ── Load existing config ──────────────────────────────────────────
-      let config: AppConfig = await loadConfig();
+      const config: AppConfig = await loadConfig();
 
       // ── Drop folder ───────────────────────────────────────────────────
       const defaultDrop =
@@ -39,50 +44,42 @@ export function initCommand(): Command {
         console.log(`  Created ${expandedDrop}`);
       }
 
-      // ── Embedding model ──────────────────────────────────────────────
+      // ── Embedding model (from shared catalog) ────────────────────────
+      const embedChoices = [
+        ...EMBED_MODELS.map((m) => ({
+          name: `${m.label} (${m.size})${m.recommended ? ' ← recommended' : ''}`,
+          value: m.id,
+        })),
+        { name: 'Enter custom HuggingFace model path', value: MODEL_CUSTOM },
+      ];
+
       const embedChoice = await select({
         message: 'Embedding model:',
-        choices: [
-          {
-            name: 'Qwen3-Embedding-0.6B (recommended, ~600 MB)',
-            value: DEFAULT_EMBED_MODEL,
-          },
-          {
-            name: 'embeddinggemma-300M (~300 MB)',
-            value: 'hf:unsloth/embeddinggemma-300m-GGUF',
-          },
-          { name: 'Enter custom HuggingFace model path', value: '__custom__' },
-        ],
+        choices: embedChoices,
       });
 
-      let modelId = embedChoice;
-      if (modelId === '__custom__') {
-        modelId = await input({ message: 'Custom model (hf:<org>/<repo> or absolute path):' });
+      let embedModelId = embedChoice;
+      if (embedModelId === MODEL_CUSTOM) {
+        embedModelId = await input({ message: 'Custom model (hf:<org>/<repo> or absolute path):' });
       }
 
-      // ── Chat model ─────────────────────────────────────────────────
+      // ── Chat model (from shared catalog) ─────────────────────────────
+      const chatChoices = [
+        ...CHAT_MODELS.map((m) => ({
+          name: `${m.label} (${m.size})${m.recommended ? ' ← recommended' : ''}`,
+          value: m.id,
+        })),
+        { name: 'Enter custom HuggingFace model path', value: MODEL_CUSTOM },
+        { name: 'Skip — I only need MCP, no local chat', value: MODEL_SKIP },
+      ];
+
       const chatChoice = await select({
         message: 'Chat model (for local Q&A with your docs):',
-        choices: [
-          {
-            name: 'Qwen3-1.7B (recommended, ~1.2 GB)',
-            value: 'hf:unsloth/Qwen3-1.7B-GGUF',
-          },
-          {
-            name: 'Qwen3-0.6B (~500 MB, faster but less capable)',
-            value: DEFAULT_CHAT_MODEL,
-          },
-          {
-            name: 'Qwen3-4B (~2.5 GB, best quality)',
-            value: 'hf:unsloth/Qwen3-4B-GGUF',
-          },
-          { name: 'Enter custom HuggingFace model path', value: '__custom__' },
-          { name: 'Skip — I only need MCP, no local chat', value: '__skip__' },
-        ],
+        choices: chatChoices,
       });
 
       let chatModelId = chatChoice;
-      if (chatModelId === '__custom__') {
+      if (chatModelId === MODEL_CUSTOM) {
         chatModelId = await input({ message: 'Custom chat model (hf:<org>/<repo> or absolute path):' });
       }
 
@@ -93,78 +90,56 @@ export function initCommand(): Command {
       });
       const mcpPort = parseInt(mcpPortStr, 10) || DEFAULT_MCP_PORT;
 
-      // ── Save config ───────────────────────────────────────────────────
-      const newPaths = [...new Set([...(config.watch.paths ?? []), expandedDrop])];
-      config = {
-        ...config,
-        watch: { ...config.watch, paths: newPaths },
-        model: { localEmbed: modelId, localChat: chatModelId === '__skip__' ? '' : chatModelId },
-        mcp: { port: mcpPort },
-      };
-      await saveConfig(config);
+      // ── Run shared setup engine ───────────────────────────────────────
       console.log('\n✓ Config saved');
+      console.log('Downloading models (this may take a few minutes on first run)\n');
+
+      let lastPct = -1;
+      const savedConfig = await runSetup(
+        { watchPath: expandedDrop, embedModelId, chatModelId, mcpPort },
+        (progress: SetupProgress) => {
+          if (progress.total > 0) {
+            const pct = Math.floor((progress.downloaded / progress.total) * 100);
+            if (pct !== lastPct && pct % 5 === 0) {
+              process.stdout.write(`\r  Downloading ${progress.modelLabel}… ${pct}%`);
+              lastPct = pct;
+            }
+          }
+        },
+        (phase, _modelId) => {
+          lastPct = -1;
+          if (phase === 'chat') {
+            process.stdout.write('\r  Downloaded            \n');
+            console.log('✓ Embedding model ready\n');
+          }
+        },
+      );
+      process.stdout.write('\r  Downloaded            \n');
+      console.log(chatModelId === MODEL_SKIP
+        ? '  Skipped chat model — you can add one later in config.yaml'
+        : '✓ Chat model ready');
 
       // ── Initialize DB ─────────────────────────────────────────────────
-      console.log('Initializing database…');
-      const store = new Store(config);
+      console.log('\nInitializing database…');
+      const { Embedder } = await import('../../main/embedder');
+      const { Store } = await import('../../main/store');
+      const store = new Store(savedConfig);
       await store.initialize();
-      for (const p of config.watch.paths) {
+      for (const p of savedConfig.watch.paths) {
         await store.upsertFolder(p);
       }
-      // Keep store open — we'll write embed_dims after the model loads
-      console.log('✓ Database ready');
 
-      // ── Download embedding model ─────────────────────────────────────
-      console.log(`\nDownloading embedding model: ${modelId}`);
-      console.log('(This may take a few minutes on first run)\n');
-
-      // Use Embedder to resolve/download the model
-      const { Embedder } = await import('../../main/embedder');
-      const embedder = new Embedder(config);
-      let lastPct = -1;
-      await embedder.initialize((downloaded: number, total: number) => {
-        if (total > 0) {
-          const pct = Math.floor((downloaded / total) * 100);
-          if (pct !== lastPct && pct % 5 === 0) {
-            process.stdout.write(`\r  Downloading… ${pct}%`);
-            lastPct = pct;
-          }
-        }
-      });
-
-      // Write the actual embedding dims so the daemon can detect model changes later
+      // Validate embedding dims
+      const embedder = new Embedder(savedConfig);
+      await embedder.initialize();
       const storedDims = store.getStoredDims();
       const actualDims = embedder.getDims();
       if (storedDims !== actualDims) {
         store.resetForNewDims(actualDims);
       }
       store.close();
-
       await embedder.dispose();
-      process.stdout.write('\r  Downloaded            \n');
-      console.log('✓ Embedding model ready');
-
-      // ── Download chat model ─────────────────────────────────────────
-      if (chatModelId !== '__skip__') {
-        console.log(`\nDownloading chat model: ${chatModelId}`);
-        console.log('(This may take a few minutes on first run)\n');
-
-        const { resolveModelPath } = await import('../../main/models');
-        let chatLastPct = -1;
-        await resolveModelPath(chatModelId, (downloaded: number, total: number) => {
-          if (total > 0) {
-            const pct = Math.floor((downloaded / total) * 100);
-            if (pct !== chatLastPct && pct % 5 === 0) {
-              process.stdout.write(`\r  Downloading… ${pct}%`);
-              chatLastPct = pct;
-            }
-          }
-        });
-        process.stdout.write('\r  Downloaded            \n');
-        console.log('✓ Chat model ready');
-      } else {
-        console.log('\n  Skipped chat model — you can add one later in config.yaml');
-      }
+      console.log('✓ Database ready');
 
       // ── Register MCP clients ──────────────────────────────────────────
       const shouldRegister = await confirm({
@@ -173,7 +148,6 @@ export function initCommand(): Command {
       });
 
       if (shouldRegister) {
-        const { registerMcpClients } = await import('../../main/mcp-register');
         const results = await registerMcpClients(mcpPort);
         for (const r of results) {
           if (r.registered) {
@@ -189,8 +163,8 @@ export function initCommand(): Command {
       console.log('NomNomDrive is set up!');
       console.log('');
       console.log(`  Watch folder : ${expandedDrop}`);
-      console.log(`  Embed model  : ${modelId}`);
-      console.log(`  Chat model   : ${chatModelId === '__skip__' ? '(none)' : chatModelId}`);
+      console.log(`  Embed model  : ${embedModelId}`);
+      console.log(`  Chat model   : ${chatModelId === MODEL_SKIP ? '(none)' : chatModelId}`);
       console.log(`  MCP endpoint : http://localhost:${mcpPort}/mcp`);
       console.log('');
       console.log('Start the background daemon:');

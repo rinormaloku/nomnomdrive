@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import type { Config, Document, ProcessedFile, Stats, SyncProgress } from './types';
+import type { Config, Document, ProcessedFile, Stats, SyncProgress, SetupStoreState, SetupProgressData } from './types';
 
 export const config = writable<Config>({ dropFolder: '', mcpPort: null, chatConfigured: false });
 export const documents = writable<Document[]>([]);
@@ -22,6 +22,21 @@ export const updateReady = writable(false);
 export const toastStore = writable<{ message: string; visible: boolean }>({
   message: '',
   visible: false,
+});
+
+// ── Setup / Onboarding stores ────────────────────────
+export const setupStatus = writable<SetupStoreState>({
+  needsSetup: false,
+  needsModelDownload: false,
+  checked: false,
+});
+
+export const setupProgress = writable<SetupProgressData>({
+  phase: '',
+  modelId: '',
+  modelLabel: '',
+  downloaded: 0,
+  total: 0,
 });
 
 let toastTimer: ReturnType<typeof setTimeout> | null = null;

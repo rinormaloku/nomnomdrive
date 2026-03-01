@@ -27,6 +27,42 @@ contextBridge.exposeInMainWorld('nomnom', {
   onConfig: (cb: (config: { dropFolder: string; mcpPort: number | null; chatConfigured: boolean }) => void) =>
     ipcRenderer.on('config', (_e, config) => cb(config)),
 
+  // ── Setup / Onboarding ───────────────────────────
+  setupCheck: (): Promise<{
+    needsSetup: boolean;
+    needsModelDownload: boolean;
+    existingConfig?: unknown;
+    missingModels?: { embed: boolean; chat: boolean };
+  }> => ipcRenderer.invoke('setup:check'),
+
+  setupGetCatalog: (): Promise<{
+    embedModels: Array<{ id: string; label: string; size: string; recommended: boolean }>;
+    chatModels: Array<{ id: string; label: string; size: string; recommended: boolean }>;
+    defaults: { watchPath: string; embedModelId: string; chatModelId: string; mcpPort: number };
+  }> => ipcRenderer.invoke('setup:get-catalog'),
+
+  setupStart: (options: {
+    watchPath: string;
+    embedModelId: string;
+    chatModelId: string;
+    mcpPort: number;
+  }): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('setup:start', options),
+
+  onSetupProgress: (cb: (progress: {
+    phase: string;
+    modelId: string;
+    modelLabel: string;
+    downloaded: number;
+    total: number;
+  }) => void) => ipcRenderer.on('setup:progress', (_e, progress) => cb(progress)),
+
+  onSetupComplete: (cb: () => void) =>
+    ipcRenderer.on('setup:complete', () => cb()),
+
+  onSetupError: (cb: (data: { error: string }) => void) =>
+    ipcRenderer.on('setup:error', (_e, data) => cb(data)),
+
   // ── Actions ──────────────────────────────────────
   openDropFolder: (folderPath: string) =>
     ipcRenderer.send('open-drop-folder', folderPath),

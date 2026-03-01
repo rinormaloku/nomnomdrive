@@ -62,7 +62,16 @@ export class Store {
     }
 
     this.db = new BetterSqlite3(this.dbPath);
-    sqliteVec.load(this.db);
+
+    // sqlite-vec ships pre-built native extensions (.so/.dylib/.dll).
+    // Inside an Electron asar, dlopen can't read from the virtual filesystem,
+    // so we resolve the path through app.asar.unpacked where electron-builder
+    // extracts the files (see asarUnpack in electron-builder.config.js).
+    let vecPath = sqliteVec.getLoadablePath();
+    if (vecPath.includes('app.asar')) {
+      vecPath = vecPath.replace('app.asar', 'app.asar.unpacked');
+    }
+    this.db.loadExtension(vecPath);
 
     // WAL mode: better read concurrency, no journal file bloat
     this.db.pragma('journal_mode = WAL');

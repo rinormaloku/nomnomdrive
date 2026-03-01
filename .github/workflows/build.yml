@@ -86,29 +86,56 @@ jobs:
           NODE_LLAMA_CPP_SKIP_DOWNLOAD: 'true'
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
-      - name: Upload Linux artifacts
+      - name: Upload Linux x64 AppImage
         if: matrix.os == 'ubuntu-latest'
         uses: actions/upload-artifact@v4
         with:
-          name: linux-builds
-          path: packages/desktop/release/*.AppImage
+          name: NomNomDrive-linux-x64.AppImage
+          path: |
+            packages/desktop/release/*.AppImage
+            !packages/desktop/release/*-arm64.AppImage
+          compression-level: 0
           retention-days: 14
           if-no-files-found: warn
 
-      - name: Upload macOS artifacts
+      - name: Upload Linux arm64 AppImage
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: NomNomDrive-linux-arm64.AppImage
+          path: packages/desktop/release/*-arm64.AppImage
+          compression-level: 0
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Upload macOS x64 DMG
         if: matrix.os == 'macos-latest'
         uses: actions/upload-artifact@v4
         with:
-          name: mac-builds
-          path: packages/desktop/release/*.dmg
+          name: NomNomDrive-mac-x64.dmg
+          path: |
+            packages/desktop/release/*.dmg
+            !packages/desktop/release/*-arm64.dmg
+          compression-level: 0
           retention-days: 14
           if-no-files-found: warn
 
-      - name: Upload Windows artifacts
+      - name: Upload macOS arm64 DMG
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: NomNomDrive-mac-arm64.dmg
+          path: packages/desktop/release/*-arm64.dmg
+          compression-level: 0
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Upload Windows installer
         if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
-          name: windows-builds
-          path: packages/desktop/release/*.exe
+          name: NomNomDrive-win-x64-setup.exe
+          path: packages/desktop/release/NomNomDrive Setup *.exe
+          compression-level: 0
           retention-days: 14
           if-no-files-found: warn

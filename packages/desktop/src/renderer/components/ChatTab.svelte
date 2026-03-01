@@ -26,7 +26,7 @@
   $: if ($activeTab === 'chat' && !initialized && !initializing && !hasTriedInit) {
     hasTriedInit = true;
     if (!$config.chatConfigured) {
-      loadError = 'No chat model configured. Run `nomnomdrive init` to set one up.';
+      loadError = 'No chat model configured. You can set one up in Settings or by running `nomnomdrive init` in a terminal.';
     } else {
       doInit();
     }

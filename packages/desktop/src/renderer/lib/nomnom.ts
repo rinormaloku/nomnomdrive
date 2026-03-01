@@ -1,6 +1,6 @@
-import { config, documents, processedFiles, stats, syncActive, syncProgress, updateReady } from './stores';
+import { config, documents, processedFiles, stats, syncActive, syncProgress, updateReady, setupStatus, setupProgress } from './stores';
 import { basename } from './utils';
-import type { Document } from './types';
+import type { Document, SetupStatusData, SetupProgressData, ModelOption, SetupCatalog } from './types';
 
 declare global {
   interface Window {
@@ -21,6 +21,19 @@ declare global {
       onConfig: (
         cb: (config: { dropFolder: string; mcpPort: number | null; chatConfigured: boolean }) => void,
       ) => void;
+      // Setup / Onboarding
+      setupCheck: () => Promise<SetupStatusData>;
+      setupGetCatalog: () => Promise<SetupCatalog>;
+      setupStart: (options: {
+        watchPath: string;
+        embedModelId: string;
+        chatModelId: string;
+        mcpPort: number;
+      }) => Promise<{ success: boolean; error?: string }>;
+      onSetupProgress: (cb: (progress: SetupProgressData) => void) => void;
+      onSetupComplete: (cb: () => void) => void;
+      onSetupError: (cb: (data: { error: string }) => void) => void;
+      // Chat
       onChatChunk: (cb: (chunk: string) => void) => void;
       openDropFolder: (folderPath: string) => void;
       openExternalUrl: (url: string) => void;
@@ -109,6 +122,19 @@ export function initNomnom() {
   window.nomnom.onUpdateDownloaded(() => {
     updateReady.set(true);
   });
+
+  // Setup / onboarding events
+  window.nomnom.onSetupProgress((progress) => {
+    setupProgress.set(progress);
+  });
+
+  window.nomnom.onSetupComplete(() => {
+    setupStatus.set({ needsSetup: false, needsModelDownload: false, checked: true });
+  });
+
+  window.nomnom.onSetupError((data) => {
+    setupStatus.update((s) => ({ ...s, error: data.error }));
+  });
 }
 
 // Direct API wrappers for use in components
@@ -120,4 +146,8 @@ export const nomnom = {
   chatInit: () => window.nomnom.chatInit(),
   chatSend: (msg: string) => window.nomnom.chatSend(msg),
   chatReset: () => window.nomnom.chatReset(),
+  setupCheck: () => window.nomnom.setupCheck(),
+  setupGetCatalog: () => window.nomnom.setupGetCatalog(),
+  setupStart: (options: { watchPath: string; embedModelId: string; chatModelId: string; mcpPort: number }) =>
+    window.nomnom.setupStart(options),
 };

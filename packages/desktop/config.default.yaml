@@ -6,7 +6,8 @@ watch:
   glob: "**/*"
 
 model:
-  local_embed: "hf:unsloth/embeddinggemma-300m-GGUF"
+  local_embed: "hf:Qwen/Qwen3-Embedding-0.6B-GGUF"
+  local_chat: "hf:unsloth/Qwen3-0.6B-GGUF"
 
 mcp:
   port: 23847

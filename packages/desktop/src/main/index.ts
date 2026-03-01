@@ -1,6 +1,7 @@
 import { app, Tray, Menu, BrowserWindow, ipcMain, shell, nativeImage, nativeTheme, screen } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import path from 'path';
+import fs from 'fs';
 import { EventEmitter } from 'events';
 import { spawn } from 'child_process';
 import { loadConfig } from './config';
@@ -13,6 +14,15 @@ import { bootstrapMcpServer } from './mcp/bootstrap';
 import { patchMcpClientByName } from './mcp-register';
 import { ChatEngine } from './chat-engine';
 import type { IndexingProgress } from '@nomnomdrive/shared';
+import {
+  checkSetupStatus,
+  runSetup,
+  downloadMissingModels,
+  getDefaultSetupOptions,
+  EMBED_MODELS,
+  CHAT_MODELS,
+  type SetupOptions,
+} from '@nomnomdrive/shared';
 
 process.on('uncaughtException', (error) => {
   console.error('[Main] Uncaught exception:', error);
@@ -21,6 +31,11 @@ process.on('uncaughtException', (error) => {
 process.on('unhandledRejection', (reason) => {
   console.error('[Main] Unhandled rejection:', reason);
 });
+
+// Use kernel user namespaces instead of SUID sandbox (required for AppImage on Linux)
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('no-sandbox');
+}
 
 app.disableHardwareAcceleration();
 app.commandLine.appendSwitch('disable-gpu');
@@ -34,6 +49,9 @@ let popupWindow: BrowserWindow | null = null;
 // to know where the tray icon lives since tray.getBounds() returns {0,0,0,0}.
 let lastTrayClickPoint: Electron.Point | null = null;
 let lastKnownTrayBounds: Electron.Rectangle | null = null;
+
+/** Set by whenReady(); called from setup:start after first-run setup completes. */
+let _startEmbedderAndWatcher: (() => Promise<void>) | null = null;
 
 function hasValidTrayBounds(bounds: Electron.Rectangle): boolean {
   return bounds.width > 0 && bounds.height > 0;
@@ -267,6 +285,55 @@ ipcMain.on('open-file', (_event, filePath: string) => {
   }
 });
 
+// ── Setup / Onboarding IPC handlers ──────────────────────────────────────────
+
+ipcMain.handle('setup:check', async () => {
+  return checkSetupStatus();
+});
+
+ipcMain.handle('setup:get-catalog', () => {
+  const defaults = getDefaultSetupOptions();
+  return {
+    embedModels: EMBED_MODELS,
+    chatModels: CHAT_MODELS,
+    defaults,
+  };
+});
+
+ipcMain.handle('setup:start', async (_event, options: SetupOptions) => {
+  try {
+    const status = await checkSetupStatus();
+    const sendProgress = (progress: { phase: string; modelId: string; modelLabel: string; downloaded: number; total: number }) => {
+      popupWindow?.webContents.send('setup:progress', progress);
+    };
+    const sendPhaseStart = (phase: string, modelId: string) => {
+      // Informational — renderer uses setup:progress for actual tracking
+      console.log(`[Setup] Starting ${phase} model download: ${modelId}`);
+    };
+
+    if (status.needsSetup || !status.existingConfig) {
+      // Full setup — save config + download models
+      await runSetup(options, sendProgress, sendPhaseStart);
+    } else if (status.needsModelDownload && status.existingConfig) {
+      // Config exists but models are missing — just download
+      await downloadMissingModels(status.existingConfig, sendProgress, sendPhaseStart);
+    }
+
+    // Models are now on disk — initialize embedder and start watcher
+    // (these were deferred during first-run setup to avoid a concurrent download race)
+    if (_startEmbedderAndWatcher) {
+      await _startEmbedderAndWatcher();
+    }
+
+    popupWindow?.webContents.send('setup:complete');
+    return { success: true };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    popupWindow?.webContents.send('setup:error', { error: message });
+    return { success: false, error: message };
+  }
+});
+
 // ─── IPC handlers for renderer data requests ──────────────────────────────────
 
 // These are set up inside app.whenReady so they have access to `store` and `config`.
@@ -291,9 +358,21 @@ app.whenReady().then(async () => {
   // Load config
   const config = await loadConfig();
 
+  // Check whether first-run setup is still needed (no config.yaml or missing models).
+  // If so, we defer embedder init and watcher start until setup:start completes,
+  // to avoid racing the setup-engine's model downloads.
+  const initialSetupStatus = await checkSetupStatus();
+  const firstRunSetupNeeded = initialSetupStatus.needsSetup || initialSetupStatus.needsModelDownload;
+
   // Initialize services
   const store = new Store(config);
   await store.initialize();
+
+  // Reconcile DB with filesystem: remove records for files deleted while offline
+  const staleDocs = await store.reconcileWithFilesystem();
+  if (staleDocs > 0) {
+    console.log(`[Store] Reconciliation removed ${staleDocs} stale record(s)`);
+  }
 
   // Create indexer first (watcher needs it)
   const embedder = new Embedder(config);
@@ -303,34 +382,50 @@ app.whenReady().then(async () => {
   const watcher = new Watcher(config, indexer);
   let ipcServer: IpcServer | null = null;
 
-  // Start embedder (async — tray is usable while model loads)
-  embedder.initialize().then(() => {
-    // Validate embedding dims against what the DB was built with.
-    // If the model changed (e.g. 768 → 1024), reset the vector index so
-    // re-indexing starts fresh rather than failing on every insert.
-    const storedDims = store.getStoredDims();
-    const actualDims = embedder.getDims();
-    if (storedDims !== null && storedDims !== actualDims) {
-      store.resetForNewDims(actualDims);
-    } else if (storedDims === null) {
-      // Shouldn't happen after runMigrations seeds the value, but guard anyway
-      store.resetForNewDims(actualDims);
-    }
-    console.log('[Embedder] Model ready');
-    popupWindow?.webContents.send('model:ready', {});
-  }).catch((err) => {
-    console.error('[Embedder] Failed to load model:', err);
-  });
+  // Helper that starts the embedder and watcher — called immediately on normal
+  // startup, or deferred until after first-run setup completes.
+  const startEmbedderAndWatcher = async () => {
+    // Start embedder (async — tray is usable while model loads)
+    embedder.initialize((downloaded, total) => {
+      popupWindow?.webContents.send('setup:progress', {
+        phase: 'embed',
+        modelId: config.model.localEmbed,
+        modelLabel: 'Embedding model',
+        downloaded,
+        total,
+      });
+    }).then(() => {
+      // Validate embedding dims against what the DB was built with.
+      // If the model changed (e.g. 768 → 1024), reset the vector index so
+      // re-indexing starts fresh rather than failing on every insert.
+      const storedDims = store.getStoredDims();
+      const actualDims = embedder.getDims();
+      if (storedDims !== null && storedDims !== actualDims) {
+        store.resetForNewDims(actualDims);
+      } else if (storedDims === null) {
+        // Shouldn't happen after runMigrations seeds the value, but guard anyway
+        store.resetForNewDims(actualDims);
+      }
+      console.log('[Embedder] Model ready');
+      popupWindow?.webContents.send('model:ready', {});
+    }).catch((err) => {
+      console.error('[Embedder] Failed to load model:', err);
+    });
 
-  // Reconcile DB with filesystem: remove records for files deleted while offline
-  const staleDocs = await store.reconcileWithFilesystem();
-  if (staleDocs > 0) {
-    console.log(`[Store] Reconciliation removed ${staleDocs} stale record(s)`);
+    // Start watching + scan existing files
+    await watcher.start();
+    indexer.scanAll(config.watch.paths).catch(console.error);
+  };
+
+  // Expose so the setup:start handler (registered at top-level) can trigger it
+  _startEmbedderAndWatcher = startEmbedderAndWatcher;
+
+  if (!firstRunSetupNeeded) {
+    // Normal startup: begin embedding and file watching immediately
+    startEmbedderAndWatcher().catch(console.error);
+  } else {
+    console.log('[Main] First-run setup pending — deferring embedder/watcher init');
   }
-
-  // Start watching + scan existing files
-  await watcher.start();
-  indexer.scanAll(config.watch.paths).catch(console.error);
 
   // ── IPC handle registrations (renderer invoke calls) ──
   ipcMain.handle('get-documents', async () => {
@@ -361,7 +456,15 @@ app.whenReady().then(async () => {
   const chatEngine = new ChatEngine(config, embedder, store);
 
   ipcMain.handle('chat:init', async () => {
-    await chatEngine.initialize();
+    await chatEngine.initialize((downloaded, total) => {
+      popupWindow?.webContents.send('setup:progress', {
+        phase: 'chat',
+        modelId: config.model.localChat,
+        modelLabel: 'Chat model',
+        downloaded,
+        total,
+      });
+    });
     return { ready: true };
   });
 
@@ -385,8 +488,11 @@ app.whenReady().then(async () => {
     await bootstrapMcpServer(config, store, embedder);
   }
 
-  // Auto-updater (production only — checks GitHub Releases for new versions)
-  if (app.isPackaged) {
+  // Auto-updater (production only — checks GitHub Releases for new versions).
+  // app-update.yml is only generated for tag releases with a publish config;
+  // skip when it's missing (e.g. local builds with --publish never).
+  const updateCfgPath = path.join(process.resourcesPath, 'app-update.yml');
+  if (app.isPackaged && fs.existsSync(updateCfgPath)) {
     autoUpdater.autoInstallOnAppQuit = true;
     autoUpdater.logger = null;
 

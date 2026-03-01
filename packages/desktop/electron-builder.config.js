@@ -16,6 +16,12 @@ module.exports = {
     '!**/*.map',
   ],
 
+  // sqlite-vec ships pre-built .so/.dylib/.dll that must be dlopen'd at runtime.
+  // These can't be loaded from inside an asar archive, so unpack them.
+  asarUnpack: [
+    'node_modules/sqlite-vec-*/**',
+  ],
+
   extraResources: [
     {
       from: 'build/icons',
