@@ -5,8 +5,8 @@
   "scripts": {
     "build": "pnpm --filter @nomnomdrive/shared build && pnpm --filter @nomnomdrive/desktop build",
     "dev": "pnpm --filter @nomnomdrive/shared build && pnpm --filter @nomnomdrive/desktop dev",
-    "cli": "node packages/desktop/dist/cli/index.js",
-    "nomnomdrive": "node packages/desktop/dist/cli/index.js",
+    "cli": "pnpm --filter @nomnomdrive/desktop cli",
+    "nomnomdrive": "pnpm --filter @nomnomdrive/desktop cli",
     "lint": "eslint packages/*/src --ext .ts",
     "typecheck": "pnpm -r typecheck",
     "clean": "pnpm -r exec rm -rf dist"

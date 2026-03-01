@@ -48,6 +48,9 @@ async function downloadHuggingFaceModel(
 
   const localPath = path.join(modelsDir, fileName);
 
+  // Ensure the parent directory exists — fileName may contain subdirs (e.g. "gguf/model.gguf")
+  await fs.mkdir(path.dirname(localPath), { recursive: true });
+
   // Check if already cached
   try {
     await fs.access(localPath);
@@ -90,6 +93,8 @@ function fetchJson(url: string): Promise<unknown> {
 
 function downloadFile(url: string, dest: string, onProgress?: ProgressCallback): Promise<void> {
   return new Promise((resolve, reject) => {
+    // Ensure parent dir exists (dest may contain subdirectories)
+    require('fs').mkdirSync(path.dirname(dest), { recursive: true });
     const file = require('fs').createWriteStream(dest + '.tmp');
     let downloaded = 0;
     let total = 0;

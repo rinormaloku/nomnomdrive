@@ -32,13 +32,14 @@ const config: Configuration = {
   linux: {
     target: [{ target: 'AppImage', arch: ['x64', 'arm64'] }],
     category: 'Utility',
-    icon: 'build/icons',
+    icon: 'build/icons/icon.png',
   },
 
   mac: {
     target: [{ target: 'dmg', arch: ['x64', 'arm64'] }],
     category: 'public.app-category.productivity',
-    icon: 'build/icons/icon.icns',
+    icon: 'build/icons/icon.png',
+    identity: null, // unsigned for now; set MAC_CERTS secret to enable signing
     hardenedRuntime: true,
     gatekeeperAssess: false,
     entitlements: 'build/entitlements.mac.plist',
@@ -47,7 +48,7 @@ const config: Configuration = {
 
   win: {
     target: [{ target: 'nsis', arch: ['x64'] }],
-    icon: 'build/icons/icon.ico',
+    icon: 'build/icons/icon.png',
   },
 
   nsis: {

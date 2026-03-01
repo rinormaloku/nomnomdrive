@@ -9,7 +9,7 @@ import {
   type AppConfig,
 } from '../../main/config';
 import { Store } from '../../main/store';
-import { DEFAULT_EMBED_MODEL, DEFAULT_MCP_PORT } from '@nomnomdrive/shared';
+import { DEFAULT_EMBED_MODEL, DEFAULT_CHAT_MODEL, DEFAULT_MCP_PORT } from '@nomnomdrive/shared';
 
 export function initCommand(): Command {
   return new Command('init')
@@ -18,7 +18,8 @@ export function initCommand(): Command {
       console.log('\n🤖 Welcome to NomNomDrive!\n');
       console.log('This wizard will:');
       console.log('  · Set up your watch folder');
-      console.log('  · Download the embedding model (~300 MB)');
+      console.log('  · Download the embedding model');
+      console.log('  · Optionally download a chat model for local Q&A');
       console.log('  · Register NomNomDrive as an MCP server in Claude Desktop / Cursor\n');
 
       // ── Load existing config ──────────────────────────────────────────
@@ -38,21 +39,51 @@ export function initCommand(): Command {
         console.log(`  Created ${expandedDrop}`);
       }
 
-      // ── Model ─────────────────────────────────────────────────────────
-      const modelChoice = await select({
+      // ── Embedding model ──────────────────────────────────────────────
+      const embedChoice = await select({
         message: 'Embedding model:',
         choices: [
           {
-            name: 'embeddinggemma-300M (recommended, ~300 MB)',
+            name: 'Qwen3-Embedding-0.6B (recommended, ~600 MB)',
             value: DEFAULT_EMBED_MODEL,
+          },
+          {
+            name: 'embeddinggemma-300M (~300 MB)',
+            value: 'hf:unsloth/embeddinggemma-300m-GGUF',
           },
           { name: 'Enter custom HuggingFace model path', value: '__custom__' },
         ],
       });
 
-      let modelId = modelChoice;
+      let modelId = embedChoice;
       if (modelId === '__custom__') {
         modelId = await input({ message: 'Custom model (hf:<org>/<repo> or absolute path):' });
+      }
+
+      // ── Chat model ─────────────────────────────────────────────────
+      const chatChoice = await select({
+        message: 'Chat model (for local Q&A with your docs):',
+        choices: [
+          {
+            name: 'Qwen3-1.7B (recommended, ~1.2 GB)',
+            value: 'hf:unsloth/Qwen3-1.7B-GGUF',
+          },
+          {
+            name: 'Qwen3-0.6B (~500 MB, faster but less capable)',
+            value: DEFAULT_CHAT_MODEL,
+          },
+          {
+            name: 'Qwen3-4B (~2.5 GB, best quality)',
+            value: 'hf:unsloth/Qwen3-4B-GGUF',
+          },
+          { name: 'Enter custom HuggingFace model path', value: '__custom__' },
+          { name: 'Skip — I only need MCP, no local chat', value: '__skip__' },
+        ],
+      });
+
+      let chatModelId = chatChoice;
+      if (chatModelId === '__custom__') {
+        chatModelId = await input({ message: 'Custom chat model (hf:<org>/<repo> or absolute path):' });
       }
 
       // ── MCP port ──────────────────────────────────────────────────────
@@ -67,7 +98,7 @@ export function initCommand(): Command {
       config = {
         ...config,
         watch: { ...config.watch, paths: newPaths },
-        model: { localEmbed: modelId },
+        model: { localEmbed: modelId, localChat: chatModelId === '__skip__' ? '' : chatModelId },
         mcp: { port: mcpPort },
       };
       await saveConfig(config);
@@ -80,11 +111,11 @@ export function initCommand(): Command {
       for (const p of config.watch.paths) {
         await store.upsertFolder(p);
       }
-      store.close();
+      // Keep store open — we'll write embed_dims after the model loads
       console.log('✓ Database ready');
 
-      // ── Download model ────────────────────────────────────────────────
-      console.log(`\nDownloading model: ${modelId}`);
+      // ── Download embedding model ─────────────────────────────────────
+      console.log(`\nDownloading embedding model: ${modelId}`);
       console.log('(This may take a few minutes on first run)\n');
 
       // Use Embedder to resolve/download the model
@@ -100,9 +131,40 @@ export function initCommand(): Command {
           }
         }
       });
+
+      // Write the actual embedding dims so the daemon can detect model changes later
+      const storedDims = store.getStoredDims();
+      const actualDims = embedder.getDims();
+      if (storedDims !== actualDims) {
+        store.resetForNewDims(actualDims);
+      }
+      store.close();
+
       await embedder.dispose();
       process.stdout.write('\r  Downloaded            \n');
-      console.log('✓ Model ready');
+      console.log('✓ Embedding model ready');
+
+      // ── Download chat model ─────────────────────────────────────────
+      if (chatModelId !== '__skip__') {
+        console.log(`\nDownloading chat model: ${chatModelId}`);
+        console.log('(This may take a few minutes on first run)\n');
+
+        const { resolveModelPath } = await import('../../main/models');
+        let chatLastPct = -1;
+        await resolveModelPath(chatModelId, (downloaded: number, total: number) => {
+          if (total > 0) {
+            const pct = Math.floor((downloaded / total) * 100);
+            if (pct !== chatLastPct && pct % 5 === 0) {
+              process.stdout.write(`\r  Downloading… ${pct}%`);
+              chatLastPct = pct;
+            }
+          }
+        });
+        process.stdout.write('\r  Downloaded            \n');
+        console.log('✓ Chat model ready');
+      } else {
+        console.log('\n  Skipped chat model — you can add one later in config.yaml');
+      }
 
       // ── Register MCP clients ──────────────────────────────────────────
       const shouldRegister = await confirm({
@@ -127,6 +189,8 @@ export function initCommand(): Command {
       console.log('NomNomDrive is set up!');
       console.log('');
       console.log(`  Watch folder : ${expandedDrop}`);
+      console.log(`  Embed model  : ${modelId}`);
+      console.log(`  Chat model   : ${chatModelId === '__skip__' ? '(none)' : chatModelId}`);
       console.log(`  MCP endpoint : http://localhost:${mcpPort}/mcp`);
       console.log('');
       console.log('Start the background daemon:');

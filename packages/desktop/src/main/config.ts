@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 import YAML from 'yaml';
-import { DEFAULT_EMBED_MODEL, DEFAULT_MCP_PORT } from '@nomnomdrive/shared';
+import { DEFAULT_EMBED_MODEL, DEFAULT_CHAT_MODEL, DEFAULT_MCP_PORT } from '@nomnomdrive/shared';
 
 export interface WatchConfig {
   paths: string[];
@@ -11,6 +11,7 @@ export interface WatchConfig {
 
 export interface ModelConfig {
   localEmbed: string;
+  localChat: string;
 }
 
 export interface McpConfig {
@@ -68,6 +69,7 @@ export function getDefaultConfig(): AppConfig {
     },
     model: {
       localEmbed: DEFAULT_EMBED_MODEL,
+      localChat: DEFAULT_CHAT_MODEL,
     },
     mcp: {
       port: DEFAULT_MCP_PORT,
@@ -93,6 +95,9 @@ export async function loadConfig(): Promise<AppConfig> {
         localEmbed:
           ((parsed.model as Record<string, unknown>)?.local_embed as string) ??
           defaults.model.localEmbed,
+        localChat:
+          ((parsed.model as Record<string, unknown>)?.local_chat as string) ??
+          defaults.model.localChat,
       },
       mcp: {
         port:
@@ -115,6 +120,7 @@ export async function saveConfig(config: AppConfig): Promise<void> {
     },
     model: {
       local_embed: config.model.localEmbed,
+      local_chat: config.model.localChat,
     },
     mcp: {
       port: config.mcp.port,

@@ -1,0 +1,114 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+          - os: macos-latest
+          - os: windows-latest
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.25.0'
+
+      - name: Get pnpm store path
+        id: pnpm-store
+        shell: bash
+        run: echo "path=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
+      # Linux needs build toolchain for better-sqlite3 native compilation
+      - name: Install Linux build dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y python3 make g++ libx11-dev libxkbfile-dev libsecret-1-dev
+
+      # pnpm install also runs packages/desktop postinstall:
+      # electron-builder install-app-deps → @electron/rebuild
+      # which compiles better-sqlite3 for Electron's ABI
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared package
+        run: pnpm --filter @nomnomdrive/shared build
+
+      # Tag push: build all platforms and publish to GitHub Releases
+      - name: Build and publish
+        if: startsWith(github.ref, 'refs/tags/')
+        working-directory: packages/desktop
+        run: pnpm dist --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_LLAMA_CPP_SKIP_DOWNLOAD: 'true'
+          # macOS code signing — configure these secrets when ready for signed distribution:
+          # CSC_LINK: ${{ secrets.MAC_CERTS }}
+          # CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
+          # APPLE_ID: ${{ secrets.APPLE_ID }}
+          # APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      # Manual dispatch: build without publishing (artifacts uploaded below for testing)
+      - name: Build (no publish)
+        if: "!startsWith(github.ref, 'refs/tags/')"
+        working-directory: packages/desktop
+        run: pnpm dist --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_LLAMA_CPP_SKIP_DOWNLOAD: 'true'
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: Upload Linux artifacts
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-builds
+          path: packages/desktop/release/*.AppImage
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Upload macOS artifacts
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-builds
+          path: packages/desktop/release/*.dmg
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Upload Windows artifacts
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-builds
+          path: packages/desktop/release/*.exe
+          retention-days: 14
+          if-no-files-found: warn

@@ -21,7 +21,9 @@ program.addCommand(statusCommand());
 program.addCommand(startCommand());
 program.addCommand(stopCommand());
 
-program.parseAsync(process.argv).catch((err) => {
+program.parseAsync(process.argv).then(() => {
+  process.exit(0);
+}).catch((err) => {
   console.error(err instanceof Error ? err.message : String(err));
   process.exit(1);
 });

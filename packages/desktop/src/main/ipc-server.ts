@@ -109,6 +109,8 @@ export class IpcServer {
         }
 
         case 'reindex': {
+          const staleDocs = await this.store.reconcileWithFilesystem();
+          if (staleDocs > 0) console.log(`[Store] Reindex reconciliation removed ${staleDocs} stale record(s)`);
           const { path: folderPath } = (msg.payload ?? {}) as { path?: string };
           const paths = folderPath ? [folderPath] : this.config.watch.paths;
           await this.indexer.scanAll(paths);

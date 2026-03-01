@@ -24,7 +24,7 @@ contextBridge.exposeInMainWorld('nomnom', {
   onModelReady: (cb: () => void) =>
     ipcRenderer.on('model:ready', () => cb()),
 
-  onConfig: (cb: (config: { dropFolder: string; mcpPort: number | null }) => void) =>
+  onConfig: (cb: (config: { dropFolder: string; mcpPort: number | null; chatConfigured: boolean }) => void) =>
     ipcRenderer.on('config', (_e, config) => cb(config)),
 
   // ── Actions ──────────────────────────────────────
@@ -34,6 +34,9 @@ contextBridge.exposeInMainWorld('nomnom', {
   openExternalUrl: (url: string) =>
     ipcRenderer.send('open-external-url', url),
 
+  openFile: (filePath: string) =>
+    ipcRenderer.send('open-file', filePath),
+
   // ── Data requests ────────────────────────────────
   getDocuments: (): Promise<
     Array<{
@@ -42,6 +45,7 @@ contextBridge.exposeInMainWorld('nomnom', {
       fileType: string;
       indexedAt: number;
       folderId: string;
+      absolutePath: string;
       chunkCount: number;
     }>
   > => ipcRenderer.invoke('get-documents'),
@@ -53,4 +57,26 @@ contextBridge.exposeInMainWorld('nomnom', {
     client: string,
   ): Promise<{ client: string; registered: boolean; configPath: string }> =>
     ipcRenderer.invoke('register-mcp-client', client),
+
+  // ── Chat ────────────────────────────────────────
+  chatInit: (): Promise<{ ready: boolean }> =>
+    ipcRenderer.invoke('chat:init'),
+
+  chatSend: (message: string): Promise<string> =>
+    ipcRenderer.invoke('chat:send', message),
+
+  onChatChunk: (cb: (chunk: string) => void) =>
+    ipcRenderer.on('chat:chunk', (_e, chunk) => cb(chunk)),
+
+  chatReset: (): Promise<void> =>
+    ipcRenderer.invoke('chat:reset'),
+
+  // ── Updates ─────────────────────────────────────
+  onUpdateAvailable: (cb: (info: { version: string }) => void) =>
+    ipcRenderer.on('update:available', (_e, info) => cb(info)),
+
+  onUpdateDownloaded: (cb: () => void) =>
+    ipcRenderer.on('update:downloaded', () => cb()),
+
+  installUpdate: () => ipcRenderer.send('update:install'),
 });

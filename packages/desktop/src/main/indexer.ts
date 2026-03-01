@@ -112,18 +112,22 @@ export class Indexer {
     const relativePath = path.relative(folder.path, filePath);
     const docId = makeDocId(folder.folderId, relativePath);
 
-    // 3. Content hash check — skip if unchanged
+    // 3. Content hash — skip if this exact file is unchanged
     const buffer = await fs.readFile(filePath);
     const contentHash = crypto.createHash('sha256').update(buffer).digest('hex');
     const existingHash = await this.store.getDocumentHash(docId);
-    if (existingHash === contentHash) return; // unchanged
+    if (existingHash === contentHash) return;
 
-    // 4. Parse
+    // 4. Skip if another document already has identical content
+    const duplicateOf = await this.store.getDocumentIdByContentHash(contentHash);
+    if (duplicateOf && duplicateOf !== docId) return;
+
+    // 5. Parse
     this.emitProgress({ filePath, phase: 'parsing', chunksProcessed: 0, chunksTotal: 0, queueLength: this.queue.length });
     const text = await parseDocument(filePath);
     if (!text.trim()) return;
 
-    // 5. Chunk
+    // 6. Chunk
     this.emitProgress({ filePath, phase: 'chunking', chunksProcessed: 0, chunksTotal: 0, queueLength: this.queue.length });
     const rawChunks = splitIntoChunks(text);
 
@@ -137,33 +141,18 @@ export class Indexer {
       text: `<metadata>\nfile: ${relativePath}\nname: ${fileName}\ntype: ${fileType}\nchunk: ${c.index + 1} of ${totalChunks}\n</metadata>\n\n${c.text}`,
     }));
 
-    // 6. Content-addressed chunk IDs: hash(text) → same text = same ID across docs.
-    //    Check which chunks are already stored so we can skip re-embedding them.
-    const chunkIds = chunks.map((c) => makeChunkId(c.text));
-    const existingIds = this.store.getExistingChunkIds(chunkIds);
-    const newChunkCount = chunkIds.filter((id) => !existingIds.has(id)).length;
-
-    // 7. Embed only chunks whose text (and thus chunk_id) is new to the DB.
-    //    Unchanged chunks that survived a document edit are reused as-is —
-    //    no re-embedding, no churn in the vec_chunks index.
-    const embeddedChunks: Array<{ chunkId: string; text: string; embedding: number[] | null }> = [];
-    let embedded = 0;
+    // 7. Embed all chunks
+    const embeddedChunks: Array<{ chunkId: string; text: string; embedding: number[] }> = [];
     for (let i = 0; i < chunks.length; i++) {
-      const chunkId = chunkIds[i];
-      if (existingIds.has(chunkId)) {
-        embeddedChunks.push({ chunkId, text: chunks[i].text, embedding: null });
-      } else {
-        this.emitProgress({
-          filePath,
-          phase: 'embedding',
-          chunksProcessed: embedded,
-          chunksTotal: newChunkCount,
-          queueLength: this.queue.length,
-        });
-        const embedding = await this.embedder.getEmbedding(chunks[i].text);
-        embeddedChunks.push({ chunkId, text: chunks[i].text, embedding });
-        embedded++;
-      }
+      this.emitProgress({
+        filePath,
+        phase: 'embedding',
+        chunksProcessed: i,
+        chunksTotal: chunks.length,
+        queueLength: this.queue.length,
+      });
+      const embedding = await this.embedder.getEmbedding(chunks[i].text);
+      embeddedChunks.push({ chunkId: makeChunkId(chunks[i].text), text: chunks[i].text, embedding });
     }
 
     // 8. Store

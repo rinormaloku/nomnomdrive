@@ -1,8 +1,9 @@
-export const DEFAULT_EMBED_MODEL = 'hf:unsloth/embeddinggemma-300m-GGUF';
+export const DEFAULT_EMBED_MODEL = 'hf:Qwen/Qwen3-Embedding-0.6B-GGUF';
 export const DEFAULT_EMBED_DIMS = 768;
+export const DEFAULT_CHAT_MODEL = 'hf:unsloth/Qwen3-0.6B-GGUF';
 export const DEFAULT_MCP_PORT = 23847;
 export const DEFAULT_CHUNK_SIZE = 1500; // characters (~375 tokens)
-export const DEFAULT_CHUNK_OVERLAP = 200; // characters
+export const DEFAULT_CHUNK_OVERLAP = 100; // characters
 
 export const APP_NAME = 'nomnomdrive';
 

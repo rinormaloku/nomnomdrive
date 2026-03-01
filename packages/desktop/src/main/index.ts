@@ -1,6 +1,8 @@
 import { app, Tray, Menu, BrowserWindow, ipcMain, shell, nativeImage, nativeTheme, screen } from 'electron';
+import { autoUpdater } from 'electron-updater';
 import path from 'path';
 import { EventEmitter } from 'events';
+import { spawn } from 'child_process';
 import { loadConfig } from './config';
 import { Store } from './store';
 import { Embedder } from './embedder';
@@ -9,6 +11,7 @@ import { Indexer } from './indexer';
 import { IpcServer } from './ipc-server';
 import { bootstrapMcpServer } from './mcp/bootstrap';
 import { patchMcpClientByName } from './mcp-register';
+import { ChatEngine } from './chat-engine';
 import type { IndexingProgress } from '@nomnomdrive/shared';
 
 process.on('uncaughtException', (error) => {
@@ -143,9 +146,16 @@ function createPopupWindow(): BrowserWindow {
     },
   });
 
-  win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html')).catch((error) => {
-    console.error('[Main] Failed to load renderer:', error);
-  });
+  const devServerUrl = process.env.VITE_DEV_SERVER_URL;
+  if (devServerUrl) {
+    win.loadURL(devServerUrl).catch((error) => {
+      console.error('[Main] Failed to load dev server:', error);
+    });
+  } else {
+    win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html')).catch((error) => {
+      console.error('[Main] Failed to load renderer:', error);
+    });
+  }
 
   win.on('blur', () => {
     win.hide();
@@ -247,6 +257,16 @@ ipcMain.on('open-external-url', (_event, url: string) => {
   shell.openExternal(url);
 });
 
+ipcMain.on('open-file', (_event, filePath: string) => {
+  // On Linux, shell.openPath triggers a Chromium PCHECK crash (chdir(current_directory) == 0)
+  // when the process cwd is invalid. Bypass by calling xdg-open directly.
+  if (process.platform === 'linux') {
+    spawn('xdg-open', [filePath], { detached: true, stdio: 'ignore' }).unref();
+  } else {
+    shell.openPath(filePath);
+  }
+});
+
 // ─── IPC handlers for renderer data requests ──────────────────────────────────
 
 // These are set up inside app.whenReady so they have access to `store` and `config`.
@@ -285,11 +305,28 @@ app.whenReady().then(async () => {
 
   // Start embedder (async — tray is usable while model loads)
   embedder.initialize().then(() => {
+    // Validate embedding dims against what the DB was built with.
+    // If the model changed (e.g. 768 → 1024), reset the vector index so
+    // re-indexing starts fresh rather than failing on every insert.
+    const storedDims = store.getStoredDims();
+    const actualDims = embedder.getDims();
+    if (storedDims !== null && storedDims !== actualDims) {
+      store.resetForNewDims(actualDims);
+    } else if (storedDims === null) {
+      // Shouldn't happen after runMigrations seeds the value, but guard anyway
+      store.resetForNewDims(actualDims);
+    }
     console.log('[Embedder] Model ready');
     popupWindow?.webContents.send('model:ready', {});
   }).catch((err) => {
     console.error('[Embedder] Failed to load model:', err);
   });
+
+  // Reconcile DB with filesystem: remove records for files deleted while offline
+  const staleDocs = await store.reconcileWithFilesystem();
+  if (staleDocs > 0) {
+    console.log(`[Store] Reconciliation removed ${staleDocs} stale record(s)`);
+  }
 
   // Start watching + scan existing files
   await watcher.start();
@@ -298,12 +335,15 @@ app.whenReady().then(async () => {
   // ── IPC handle registrations (renderer invoke calls) ──
   ipcMain.handle('get-documents', async () => {
     const docs = await store.getAllDocuments();
+    const folders = await store.listFolders();
+    const folderPathMap = new Map(folders.map((f) => [f.folderId, f.path]));
     return docs.map((d) => ({
       relativePath: d.relativePath,
       fileSize: d.fileSize,
       fileType: d.fileType,
       indexedAt: d.indexedAt,
       folderId: d.folderId,
+      absolutePath: path.join(folderPathMap.get(d.folderId) ?? '', d.relativePath),
       chunkCount: d.chunkCount,
     }));
   });
@@ -317,16 +357,58 @@ app.whenReady().then(async () => {
     return patchMcpClientByName(client, port);
   });
 
+  // ── Chat engine (lazy-loaded) ──
+  const chatEngine = new ChatEngine(config, embedder, store);
+
+  ipcMain.handle('chat:init', async () => {
+    await chatEngine.initialize();
+    return { ready: true };
+  });
+
+  ipcMain.handle('chat:send', async (_event, message: string) => {
+    const response = await chatEngine.chat(message, (chunk) => {
+      popupWindow?.webContents.send('chat:chunk', chunk);
+    });
+    return response;
+  });
+
+  ipcMain.handle('chat:reset', async () => {
+    await chatEngine.resetSession();
+  });
+
   // Start Unix socket IPC server for CLI
   ipcServer = new IpcServer(config, store, watcher, indexer);
   await ipcServer.start();
 
-  const shouldStartMcp = app.isPackaged || process.env.NOMNOM_ENABLE_MCP_IN_DEV === '1';
+  const shouldStartMcp = app.isPackaged || process.env.NOMNOM_DISABLE_MCP_IN_DEV !== '1';
   if (shouldStartMcp) {
     await bootstrapMcpServer(config, store, embedder);
-  } else {
-    console.log('[MCP] Skipped in dev (set NOMNOM_ENABLE_MCP_IN_DEV=1 to enable)');
   }
+
+  // Auto-updater (production only — checks GitHub Releases for new versions)
+  if (app.isPackaged) {
+    autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.logger = null;
+
+    autoUpdater.on('update-available', (info) => {
+      popupWindow?.webContents.send('update:available', { version: info.version });
+    });
+
+    autoUpdater.on('update-downloaded', () => {
+      popupWindow?.webContents.send('update:downloaded', {});
+    });
+
+    autoUpdater.on('error', (err) => {
+      console.error('[AutoUpdater]', err.message);
+    });
+
+    autoUpdater.checkForUpdates().catch(console.error);
+    setInterval(() => autoUpdater.checkForUpdates().catch(console.error), 4 * 60 * 60 * 1000);
+  }
+
+  ipcMain.on('update:install', () => {
+    autoUpdater.quitAndInstall();
+  });
 
   // Create popup window
   popupWindow = createPopupWindow();
@@ -334,6 +416,7 @@ app.whenReady().then(async () => {
     popupWindow?.webContents.send('config', {
       dropFolder: config.watch.paths[0],
       mcpPort: shouldStartMcp ? config.mcp.port : null,
+      chatConfigured: chatEngine.isConfigured(),
     });
   });
 
@@ -413,6 +496,7 @@ app.whenReady().then(async () => {
     if (ipcServer) {
       await ipcServer.stop();
     }
+    await chatEngine.dispose();
     await embedder.dispose();
     await watcher.stop();
     store.close();

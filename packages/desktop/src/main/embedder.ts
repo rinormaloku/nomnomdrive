@@ -20,6 +20,7 @@ export class Embedder {
   private model: LlamaModel | null = null;
   private context: LlamaContext | null = null;
   private modelPath: string | null = null;
+  private dims: number | null = null;
   private readonly config: AppConfig;
   /** Resolves when the model is ready; null if initialize() has not been called. */
   private readyPromise: Promise<void> | null = null;
@@ -37,6 +38,9 @@ export class Embedder {
       this.llama = (await getLlama()) as unknown as Llama;
       this.model = await this.llama.loadModel({ modelPath: this.modelPath });
       this.context = await this.model.createEmbeddingContext();
+      // Probe actual output dims so callers can validate against the DB schema
+      const probe = await this.context.getEmbeddingFor('test');
+      this.dims = probe.vector.length;
     })();
     return this.readyPromise;
   }
@@ -61,6 +65,12 @@ export class Embedder {
 
   isReady(): boolean {
     return this.context !== null;
+  }
+
+  /** Returns the embedding dimension of the loaded model. Throws if not yet initialized. */
+  getDims(): number {
+    if (this.dims === null) throw new Error('Embedder not initialized');
+    return this.dims;
   }
 
   getModelPath(): string | null {
