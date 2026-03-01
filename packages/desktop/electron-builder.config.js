@@ -20,6 +20,7 @@ module.exports = {
   // These can't be loaded from inside an asar archive, so unpack them.
   asarUnpack: [
     'node_modules/sqlite-vec-*/**',
+    'node_modules/better-sqlite3/**',
   ],
 
   extraResources: [
@@ -35,13 +36,13 @@ module.exports = {
   buildDependenciesFromSource: false,
 
   linux: {
-    target: [{ target: 'AppImage', arch: ['x64', 'arm64'] }],
+    target: [{ target: 'AppImage' }],
     category: 'Utility',
     icon: 'build/icons/icon.png',
   },
 
   mac: {
-    target: [{ target: 'dmg', arch: ['x64', 'arm64'] }],
+    target: [{ target: 'dmg' }],
     category: 'public.app-category.productivity',
     icon: 'build/icons/icon.png',
     identity: null, // unsigned for now; set MAC_CERTS secret to enable signing
