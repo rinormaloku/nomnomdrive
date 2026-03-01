@@ -110,16 +110,75 @@ install_macos() {
 # ── Linux install ──────────────────────────────────────────────────────────────
 
 install_linux() {
-  local install_dir dest
+  local install_dir dest icon_dir icon_dest desktop_dir desktop_dest
 
   install_dir="${HOME}/.local/bin"
   mkdir -p "$install_dir"
 
+  local appimage_dir appimage_dest
+  appimage_dir="${HOME}/.local/lib/nomnomdrive"
+  appimage_dest="${appimage_dir}/${APP_NAME}.AppImage"
   dest="${install_dir}/nomnomdrive"
 
-  info "Downloading $FILENAME..."
-  curl -fSL --progress-bar "$DOWNLOAD_URL" -o "$dest"
+  mkdir -p "$appimage_dir"
+
+  # AppImages require FUSE 2 to mount at runtime
+  if ! command -v fusermount &>/dev/null && ! [[ -f /usr/lib/libfuse.so.2 ]]; then
+    info "Installing libfuse2 (required for AppImage)..."
+    if command -v apt-get &>/dev/null; then
+      sudo apt-get install -y libfuse2t64 2>/dev/null || sudo apt-get install -y libfuse2
+    elif command -v dnf &>/dev/null; then
+      sudo dnf install -y fuse-libs
+    elif command -v pacman &>/dev/null; then
+      sudo pacman -S --noconfirm fuse2
+    else
+      die "Could not install libfuse2 automatically. Please install it manually and retry."
+    fi
+  fi
+
+  if [[ -f "$appimage_dest" ]]; then
+    info "AppImage already exists, skipping download."
+  else
+    info "Downloading $FILENAME..."
+    curl -fSL --progress-bar "$DOWNLOAD_URL" -o "$appimage_dest"
+  fi
+  chmod +x "$appimage_dest"
+
+  # Wrapper script that passes --no-sandbox to work around the SUID sandbox
+  # requirement that AppImages cannot satisfy on most Linux distributions.
+  cat > "$dest" <<WRAPPER
+#!/usr/bin/env bash
+exec "${appimage_dest}" --no-sandbox "\$@"
+WRAPPER
   chmod +x "$dest"
+
+  # Install icon
+  icon_dir="${HOME}/.local/share/icons"
+  icon_dest="${icon_dir}/nomnomdrive.png"
+  mkdir -p "$icon_dir"
+  if [[ -f "$icon_dest" ]]; then
+    info "Icon already exists, skipping download."
+  else
+    info "Downloading application icon..."
+    curl -fsSL "https://raw.githubusercontent.com/${REPO}/${TAG}/packages/desktop/build/icons/icon.png" \
+      -o "$icon_dest"
+  fi
+
+  # Create .desktop entry so the app appears in launchers
+  desktop_dir="${HOME}/.local/share/applications"
+  desktop_dest="${desktop_dir}/nomnomdrive.desktop"
+  mkdir -p "$desktop_dir"
+  cat > "$desktop_dest" <<EOF
+[Desktop Entry]
+Name=${APP_NAME}
+Exec=${dest}
+Icon=${icon_dest}
+Type=Application
+Categories=Utility;
+Comment=Smart file organizer powered by local AI
+Terminal=false
+StartupWMClass=NomNomDrive
+EOF
 
   ok "${APP_NAME} installed to ${dest}"
   echo

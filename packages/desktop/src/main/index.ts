@@ -1,4 +1,4 @@
-import { app, Tray, Menu, BrowserWindow, ipcMain, shell, nativeImage, nativeTheme, screen } from 'electron';
+import { app, Tray, Menu, BrowserWindow, ipcMain, shell, nativeImage, nativeTheme } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import path from 'path';
 import fs from 'fs';
@@ -42,120 +42,32 @@ app.commandLine.appendSwitch('disable-gpu');
 
 const emitter = new EventEmitter();
 let tray: Tray | null = null;
-let popupWindow: BrowserWindow | null = null;
-
-// On Linux, we capture the cursor position when the context menu opens (at that
-// moment the cursor is still on the tray icon). This is the only reliable way
-// to know where the tray icon lives since tray.getBounds() returns {0,0,0,0}.
-let lastTrayClickPoint: Electron.Point | null = null;
-let lastKnownTrayBounds: Electron.Rectangle | null = null;
+let mainWindow: BrowserWindow | null = null;
+let forceQuit = false;
 
 /** Set by whenReady(); called from setup:start after first-run setup completes. */
 let _startEmbedderAndWatcher: (() => Promise<void>) | null = null;
 
-function hasValidTrayBounds(bounds: Electron.Rectangle): boolean {
-  return bounds.width > 0 && bounds.height > 0;
-}
+// ─── Main window ──────────────────────────────────────────────────────────────
 
-function pointToFallbackBounds(point: Electron.Point): Electron.Rectangle {
-  const fallbackSize = process.platform === 'darwin' ? 22 : 24;
-  return {
-    x: Math.round(point.x - fallbackSize / 2),
-    y: Math.round(point.y - fallbackSize / 2),
-    width: fallbackSize,
-    height: fallbackSize,
-  };
-}
-
-function updateTrayAnchor(bounds?: Electron.Rectangle): void {
-  if (bounds && hasValidTrayBounds(bounds)) {
-    lastKnownTrayBounds = bounds;
-    lastTrayClickPoint = {
-      x: Math.round(bounds.x + bounds.width / 2),
-      y: Math.round(bounds.y + bounds.height / 2),
-    };
-    return;
-  }
-
-  const point = screen.getCursorScreenPoint();
-  lastTrayClickPoint = point;
-  lastKnownTrayBounds = pointToFallbackBounds(point);
-}
-
-function getTrayAnchorBounds(currentTray: Tray): Electron.Rectangle {
-  const trayBounds = currentTray.getBounds();
-  if (hasValidTrayBounds(trayBounds)) {
-    lastKnownTrayBounds = trayBounds;
-    return trayBounds;
-  }
-
-  if (lastKnownTrayBounds && hasValidTrayBounds(lastKnownTrayBounds)) {
-    return lastKnownTrayBounds;
-  }
-
-  const anchor = lastTrayClickPoint ?? screen.getCursorScreenPoint();
-  return pointToFallbackBounds(anchor);
-}
-
-function detectTrayEdge(anchorBounds: Electron.Rectangle, workArea: Electron.Rectangle): 'top' | 'bottom' | 'left' | 'right' {
-  const centerX = anchorBounds.x + anchorBounds.width / 2;
-  const centerY = anchorBounds.y + anchorBounds.height / 2;
-
-  const distances = {
-    top: Math.abs(centerY - workArea.y),
-    bottom: Math.abs(workArea.y + workArea.height - centerY),
-    left: Math.abs(centerX - workArea.x),
-    right: Math.abs(workArea.x + workArea.width - centerX),
-  };
-
-  let edge: 'top' | 'bottom' | 'left' | 'right' = 'top';
-  let minDistance = distances.top;
-
-  for (const candidate of ['bottom', 'left', 'right'] as const) {
-    if (distances[candidate] < minDistance) {
-      minDistance = distances[candidate];
-      edge = candidate;
-    }
-  }
-
-  return edge;
-}
-
-function detectPanelEdgeFromDisplay(display: Electron.Display): 'top' | 'bottom' | 'left' | 'right' {
-  const { bounds, workArea } = display;
-  const insets = {
-    top: Math.max(0, workArea.y - bounds.y),
-    bottom: Math.max(0, bounds.y + bounds.height - (workArea.y + workArea.height)),
-    left: Math.max(0, workArea.x - bounds.x),
-    right: Math.max(0, bounds.x + bounds.width - (workArea.x + workArea.width)),
-  };
-
-  let edge: 'top' | 'bottom' | 'left' | 'right' = 'top';
-  let maxInset = insets.top;
-
-  for (const candidate of ['bottom', 'left', 'right'] as const) {
-    if (insets[candidate] > maxInset) {
-      maxInset = insets[candidate];
-      edge = candidate;
-    }
-  }
-
-  return edge;
-}
-
-// ─── Tray popup window ────────────────────────────────────────────────────────
-
-function createPopupWindow(): BrowserWindow {
-  const isDev = !app.isPackaged;
+function createMainWindow(): BrowserWindow {
+  const appIconPath = path.join(
+    app.isPackaged ? process.resourcesPath : path.join(__dirname, '..', 'build'),
+    'icons',
+    'icon.png',
+  );
   const win = new BrowserWindow({
-    width: 520,
-    height: 460,
+    width: 900,
+    height: 600,
+    minWidth: 520,
+    minHeight: 460,
     show: false,
-    frame: false,
-    resizable: false,
-    movable: false,
-    alwaysOnTop: true,
-    skipTaskbar: true,
+    frame: true,
+    resizable: true,
+    movable: true,
+    alwaysOnTop: false,
+    skipTaskbar: false,
+    icon: appIconPath,
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload.js'),
       sandbox: false,
@@ -175,96 +87,36 @@ function createPopupWindow(): BrowserWindow {
     });
   }
 
-  win.on('blur', () => {
-    win.hide();
+  win.once('ready-to-show', () => {
+    win.show();
+  });
+
+  win.on('close', (event) => {
+    if (!forceQuit) {
+      event.preventDefault();
+      win.hide();
+    }
   });
 
   return win;
 }
 
-function togglePopup(forceShow = false): void {
-  if (!tray || !popupWindow) return;
-
-  if (popupWindow.isVisible() && !forceShow) {
-    popupWindow.hide();
-    return;
-  }
-
-  const windowBounds = popupWindow.getBounds();
-
-  const trayBounds = tray.getBounds();
-  const hasRealTrayBounds = hasValidTrayBounds(trayBounds);
-  const anchorBounds = hasRealTrayBounds ? trayBounds : getTrayAnchorBounds(tray);
-  const display = screen.getDisplayMatching(anchorBounds);
-  const workArea = display.workArea;
-  const trayEdge = detectTrayEdge(anchorBounds, workArea);
-  const gap = 6;
-
-  let x: number;
-  let y: number;
-
-  switch (trayEdge) {
-    case 'top':
-      x = Math.round(anchorBounds.x + anchorBounds.width - windowBounds.width);
-      y = Math.round(anchorBounds.y + anchorBounds.height + gap);
-      break;
-    case 'bottom':
-      x = Math.round(anchorBounds.x + anchorBounds.width - windowBounds.width);
-      y = Math.round(anchorBounds.y - windowBounds.height - gap);
-      break;
-    case 'left':
-      x = Math.round(anchorBounds.x + anchorBounds.width + gap);
-      y = Math.round(anchorBounds.y);
-      break;
-    case 'right':
-      x = Math.round(anchorBounds.x - windowBounds.width - gap);
-      y = Math.round(anchorBounds.y);
-      break;
-  }
-
-  if (process.platform === 'linux' && !hasRealTrayBounds) {
-    const panelEdge = detectPanelEdgeFromDisplay(display);
-
-    if (panelEdge === 'top' || panelEdge === 'bottom') {
-      // GNOME/Ubuntu and most Linux trays place indicators on the right side.
-      // When tray bounds are unavailable on Wayland, anchor horizontally to the
-      // right to keep the status window under the indicator area.
-      x = workArea.x + workArea.width - windowBounds.width - gap;
-      y = panelEdge === 'top'
-        ? workArea.y + gap
-        : workArea.y + workArea.height - windowBounds.height - gap;
-    } else {
-      x = panelEdge === 'left'
-        ? workArea.x + gap
-        : workArea.x + workArea.width - windowBounds.width - gap;
-      y = workArea.y + gap;
-    }
-  }
-
-  x = Math.max(workArea.x, Math.min(x, workArea.x + workArea.width - windowBounds.width));
-  y = Math.max(workArea.y, Math.min(y, workArea.y + workArea.height - windowBounds.height));
-
-  popupWindow.setPosition(x, y);
-  popupWindow.show();
-  popupWindow.focus();
-}
-
 // ─── IPC bridge to renderer ───────────────────────────────────────────────────
 
 emitter.on('indexing:progress', (progress: IndexingProgress) => {
-  popupWindow?.webContents.send('indexing:progress', progress);
+  mainWindow?.webContents.send('indexing:progress', progress);
 });
 
 emitter.on('indexing:complete', (data: { filePath: string; chunkCount: number }) => {
-  popupWindow?.webContents.send('indexing:complete', data);
+  mainWindow?.webContents.send('indexing:complete', data);
 });
 
 emitter.on('indexing:error', (data: { filePath: string; error: string }) => {
-  popupWindow?.webContents.send('indexing:error', data);
+  mainWindow?.webContents.send('indexing:error', data);
 });
 
 emitter.on('indexing:deleted', (data: { filePath: string }) => {
-  popupWindow?.webContents.send('indexing:deleted', data);
+  mainWindow?.webContents.send('indexing:deleted', data);
 });
 
 ipcMain.on('open-drop-folder', (_event, folderPath: string) => {
@@ -304,7 +156,7 @@ ipcMain.handle('setup:start', async (_event, options: SetupOptions) => {
   try {
     const status = await checkSetupStatus();
     const sendProgress = (progress: { phase: string; modelId: string; modelLabel: string; downloaded: number; total: number }) => {
-      popupWindow?.webContents.send('setup:progress', progress);
+      mainWindow?.webContents.send('setup:progress', progress);
     };
     const sendPhaseStart = (phase: string, modelId: string) => {
       // Informational — renderer uses setup:progress for actual tracking
@@ -325,11 +177,11 @@ ipcMain.handle('setup:start', async (_event, options: SetupOptions) => {
       await _startEmbedderAndWatcher();
     }
 
-    popupWindow?.webContents.send('setup:complete');
+    mainWindow?.webContents.send('setup:complete');
     return { success: true };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    popupWindow?.webContents.send('setup:error', { error: message });
+    mainWindow?.webContents.send('setup:error', { error: message });
     return { success: false, error: message };
   }
 });
@@ -342,9 +194,6 @@ ipcMain.handle('setup:start', async (_event, options: SetupOptions) => {
 // ─── App lifecycle ────────────────────────────────────────────────────────────
 
 app.whenReady().then(async () => {
-  // Hide from macOS dock — tray-only app
-  if (process.platform === 'darwin') app.dock?.hide();
-
   // Single instance lock
   if (!app.requestSingleInstanceLock()) {
     console.warn('[Main] Another instance is already running; exiting this instance');
@@ -387,7 +236,7 @@ app.whenReady().then(async () => {
   const startEmbedderAndWatcher = async () => {
     // Start embedder (async — tray is usable while model loads)
     embedder.initialize((downloaded, total) => {
-      popupWindow?.webContents.send('setup:progress', {
+      mainWindow?.webContents.send('setup:progress', {
         phase: 'embed',
         modelId: config.model.localEmbed,
         modelLabel: 'Embedding model',
@@ -407,7 +256,7 @@ app.whenReady().then(async () => {
         store.resetForNewDims(actualDims);
       }
       console.log('[Embedder] Model ready');
-      popupWindow?.webContents.send('model:ready', {});
+      mainWindow?.webContents.send('model:ready', {});
     }).catch((err) => {
       console.error('[Embedder] Failed to load model:', err);
     });
@@ -457,7 +306,7 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('chat:init', async () => {
     await chatEngine.initialize((downloaded, total) => {
-      popupWindow?.webContents.send('setup:progress', {
+      mainWindow?.webContents.send('setup:progress', {
         phase: 'chat',
         modelId: config.model.localChat,
         modelLabel: 'Chat model',
@@ -470,7 +319,7 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('chat:send', async (_event, message: string) => {
     const response = await chatEngine.chat(message, (chunk) => {
-      popupWindow?.webContents.send('chat:chunk', chunk);
+      mainWindow?.webContents.send('chat:chunk', chunk);
     });
     return response;
   });
@@ -497,11 +346,11 @@ app.whenReady().then(async () => {
     autoUpdater.logger = null;
 
     autoUpdater.on('update-available', (info) => {
-      popupWindow?.webContents.send('update:available', { version: info.version });
+      mainWindow?.webContents.send('update:available', { version: info.version });
     });
 
     autoUpdater.on('update-downloaded', () => {
-      popupWindow?.webContents.send('update:downloaded', {});
+      mainWindow?.webContents.send('update:downloaded', {});
     });
 
     autoUpdater.on('error', (err) => {
@@ -516,10 +365,10 @@ app.whenReady().then(async () => {
     autoUpdater.quitAndInstall();
   });
 
-  // Create popup window
-  popupWindow = createPopupWindow();
-  popupWindow.webContents.on('did-finish-load', () => {
-    popupWindow?.webContents.send('config', {
+  // Create main window
+  mainWindow = createMainWindow();
+  mainWindow.webContents.on('did-finish-load', () => {
+    mainWindow?.webContents.send('config', {
       dropFolder: config.watch.paths[0],
       mcpPort: shouldStartMcp ? config.mcp.port : null,
       chatConfigured: chatEngine.isConfigured(),
@@ -565,8 +414,7 @@ app.whenReady().then(async () => {
   } catch (error) {
     console.error('[Tray] Failed to create tray icon:', error);
     tray = null;
-    // Tray failed — show popup directly so the user isn't stranded
-    popupWindow?.show();
+    // Tray failed — window is already visible via ready-to-show; nothing else needed
   }
 
   // Keep the icon in sync when the OS theme changes (macOS / Windows only — Linux
@@ -578,32 +426,40 @@ app.whenReady().then(async () => {
   }
 
   const contextMenu = Menu.buildFromTemplate([
-    { label: 'Show Status', click: () => togglePopup(true) },
+    {
+      label: 'Show',
+      click: () => {
+        mainWindow?.show();
+        mainWindow?.focus();
+      },
+    },
     {
       label: 'Open Drop Folder',
       click: () => shell.openPath(config.watch.paths[0]),
     },
     { type: 'separator' },
-    { label: 'Quit', click: () => app.quit() },
+    {
+      label: 'Quit',
+      click: () => {
+        forceQuit = true;
+        app.quit();
+      },
+    },
   ]);
 
-  // Capture cursor position the moment the context menu opens — on GNOME/Ubuntu
-  // this fires when the user clicks the tray icon, so the cursor is right on it.
-  contextMenu.on('menu-will-show', () => {
-    updateTrayAnchor(tray?.getBounds());
-  });
-
   tray?.setContextMenu(contextMenu);
-  tray?.on('click', (_event, bounds) => {
-    updateTrayAnchor(bounds);
-    togglePopup();
-  });
-  tray?.on('right-click', (_event, bounds) => {
-    updateTrayAnchor(bounds);
+  tray?.on('click', () => {
+    if (mainWindow?.isVisible()) {
+      mainWindow.focus();
+    } else {
+      mainWindow?.show();
+      mainWindow?.focus();
+    }
   });
 
   // Cleanup on quit
   app.on('before-quit', async () => {
+    forceQuit = true;
     if (ipcServer) {
       await ipcServer.stop();
     }
@@ -619,11 +475,9 @@ app.on('window-all-closed', () => {
 });
 
 app.on('second-instance', () => {
-  if (popupWindow && !popupWindow.isDestroyed()) {
-    popupWindow.show();
-    popupWindow.focus();
-    return;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
   }
-
-  togglePopup();
 });
