@@ -65,9 +65,10 @@ jobs:
       - name: Build and publish
         if: startsWith(github.ref, 'refs/tags/')
         working-directory: packages/desktop
-        run: pnpm dist --publish always -c.publish.provider=github
+        run: pnpm dist --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ELECTRON_BUILDER_PUBLISH_PROVIDER: github
           NODE_LLAMA_CPP_SKIP_DOWNLOAD: 'true'
           # macOS code signing — configure these secrets when ready for signed distribution:
           # CSC_LINK: ${{ secrets.MAC_CERTS }}
