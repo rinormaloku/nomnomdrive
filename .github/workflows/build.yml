@@ -61,6 +61,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Sync package.json version with the git tag so electron-builder
+      # publishes assets to the correct GitHub Release.
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "Setting version to $VERSION"
+          cd packages/desktop && npm version "$VERSION" --no-git-tag-version
+
       - name: Build shared package
         run: pnpm --filter @nomnomdrive/shared build
 
