@@ -1,6 +1,5 @@
-import type { Configuration } from 'electron-builder';
-
-const config: Configuration = {
+/** @type {import('electron-builder').Configuration} */
+module.exports = {
   appId: 'io.nomnomdrive.app',
   productName: 'NomNomDrive',
   copyright: 'Copyright © 2026 NomNomDrive',
@@ -56,10 +55,6 @@ const config: Configuration = {
     allowToChangeInstallationDirectory: true,
   },
 
-  publish: {
-    provider: 'github',
-    releaseType: 'release',
-  },
+  // publish is configured via CLI: --publish always -c.publish.provider=github
+  // Kept out of static config to avoid electron-builder v25 channel bug with --publish never
 };
-
-export default config;
