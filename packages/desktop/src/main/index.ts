@@ -540,15 +540,18 @@ app.whenReady().then(async () => {
     .resize({ width: 16, height: 16 });
 
   // Load both variants (dark = white icon for dark taskbars, light = black icon for light taskbars)
-  let iconDark  = nativeImage.createFromPath(path.join(iconsDir, 'tray-dark.png'));
-  let iconLight = nativeImage.createFromPath(path.join(iconsDir, 'tray-light.png'));
+  // Windows requires .ico for reliable system tray rendering; other platforms use .png.
+  const trayExt = process.platform === 'win32' ? 'ico' : 'png';
+  let iconDark  = nativeImage.createFromPath(path.join(iconsDir, `tray-dark.${trayExt}`));
+  let iconLight = nativeImage.createFromPath(path.join(iconsDir, `tray-light.${trayExt}`));
   if (iconDark.isEmpty())  iconDark  = fallback1x1;
   if (iconLight.isEmpty()) iconLight = fallback1x1;
 
-  // On macOS mark as template so the system handles light/dark automatically
+  // On macOS, resize to 18px (standard menu bar size — Retina macs double it
+  // automatically). This avoids an oversized blob in the menu bar.
   if (process.platform === 'darwin') {
-    iconDark.setTemplateImage(true);
-    iconLight.setTemplateImage(true);
+    iconDark  = iconDark.resize({ width: 18, height: 18 });
+    iconLight = iconLight.resize({ width: 18, height: 18 });
   }
 
   // Linux panels (GNOME/Ubuntu top bar) are always dark regardless of the desktop
@@ -562,6 +565,8 @@ app.whenReady().then(async () => {
   } catch (error) {
     console.error('[Tray] Failed to create tray icon:', error);
     tray = null;
+    // Tray failed — show popup directly so the user isn't stranded
+    popupWindow?.show();
   }
 
   // Keep the icon in sync when the OS theme changes (macOS / Windows only — Linux
