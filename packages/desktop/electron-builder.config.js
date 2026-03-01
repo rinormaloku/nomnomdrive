@@ -61,7 +61,8 @@ module.exports = {
     allowToChangeInstallationDirectory: true,
   },
 
-  // In CI: GH_TOKEN + ELECTRON_BUILDER_PUBLISH_PROVIDER=github enables GitHub publishing
-  // Locally: publish is null (no auto-detection, no publishing)
-  publish: process.env.GH_TOKEN ? { provider: 'github' } : null,
+  // In CI: GH_TOKEN enables GitHub publishing to the existing release for the tag.
+  // releaseType 'release' ensures assets are uploaded to a published release (not a draft).
+  // Locally: publish is null (no publishing).
+  publish: process.env.GH_TOKEN ? { provider: 'github', releaseType: 'release' } : null,
 };
