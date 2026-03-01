@@ -61,9 +61,7 @@ module.exports = {
     allowToChangeInstallationDirectory: true,
   },
 
-  // Must be explicit null (not undefined/omitted) so electron-builder skips
-  // update info generation. Without this, GH_TOKEN in CI triggers auto-detection
-  // which fails when the repository can't be resolved from .git/config.
-  // For tag releases, the workflow overrides via CLI: -c.publish.provider=github
-  publish: null,
+  // In CI: GH_TOKEN + ELECTRON_BUILDER_PUBLISH_PROVIDER=github enables GitHub publishing
+  // Locally: publish is null (no auto-detection, no publishing)
+  publish: process.env.GH_TOKEN ? { provider: 'github' } : null,
 };
