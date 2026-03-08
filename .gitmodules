@@ -1,0 +1,3 @@
+[submodule "packages/cloud"]
+	path = packages/cloud
+	url = git@github.com:rinormaloku/nomnomdrive-cloud.git

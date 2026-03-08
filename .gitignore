@@ -10,5 +10,3 @@ dist-electron/
 *.gguf
 release/
 data/**
-data/**
-packages/cloud/**
