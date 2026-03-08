@@ -18,11 +18,49 @@ export interface McpConfig {
   port: number;
 }
 
+export interface CloudConfig {
+  serverUrl: string;
+}
+
 export interface AppConfig {
   mode: 'local' | 'cloud';
   watch: WatchConfig;
   model: ModelConfig;
   mcp: McpConfig;
+  cloud?: CloudConfig;
+}
+
+export interface CloudCredentials {
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt?: number;
+}
+
+export function getCloudCredentialsPath(): string {
+  return path.join(getConfigDir(), 'cloud-credentials.json');
+}
+
+export async function loadCloudCredentials(): Promise<CloudCredentials | null> {
+  try {
+    const raw = await fs.readFile(getCloudCredentialsPath(), 'utf-8');
+    return JSON.parse(raw) as CloudCredentials;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveCloudCredentials(creds: CloudCredentials): Promise<void> {
+  const dir = getConfigDir();
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(getCloudCredentialsPath(), JSON.stringify(creds, null, 2), 'utf-8');
+}
+
+export async function deleteCloudCredentials(): Promise<void> {
+  try {
+    await fs.unlink(getCloudCredentialsPath());
+  } catch {
+    // ignore — file may not exist
+  }
 }
 
 export function expandHome(p: string): string {
@@ -112,6 +150,9 @@ export async function loadConfig(): Promise<AppConfig> {
         port:
           ((parsed.mcp as Record<string, unknown>)?.port as number) ?? defaults.mcp.port,
       },
+      cloud: (parsed.cloud as Record<string, unknown>)?.server_url
+        ? { serverUrl: (parsed.cloud as Record<string, unknown>).server_url as string }
+        : undefined,
     };
   } catch {
     return getDefaultConfig();
@@ -134,6 +175,7 @@ export async function saveConfig(config: AppConfig): Promise<void> {
     mcp: {
       port: config.mcp.port,
     },
+    ...(config.cloud ? { cloud: { server_url: config.cloud.serverUrl } } : {}),
   });
   await fs.writeFile(getConfigPath(), raw, 'utf-8');
 }

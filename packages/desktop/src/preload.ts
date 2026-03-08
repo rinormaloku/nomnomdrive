@@ -89,6 +89,20 @@ contextBridge.exposeInMainWorld('nomnom', {
   getStats: (): Promise<{ fileCount: number; chunkCount: number }> =>
     ipcRenderer.invoke('get-stats'),
 
+  getCloudStatus: (): Promise<{
+    mode: string;
+    serverUrl: string | null;
+    hasCredentials: boolean;
+  }> => ipcRenderer.invoke('cloud:get-status'),
+
+  cloudLogin: (serverUrl?: string): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('cloud:login', serverUrl),
+
+  cloudLogout: (): Promise<void> => ipcRenderer.invoke('cloud:logout'),
+
+  onCloudStatusChanged: (cb: () => void) =>
+    ipcRenderer.on('cloud:status-changed', cb),
+
   registerMcpClient: (
     client: string,
   ): Promise<{ client: string; registered: boolean; configPath: string }> =>

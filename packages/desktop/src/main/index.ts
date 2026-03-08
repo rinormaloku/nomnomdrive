@@ -3,8 +3,12 @@ import { autoUpdater } from 'electron-updater';
 import path from 'path';
 import fs from 'fs';
 import { EventEmitter } from 'events';
+import { createServer } from 'http';
+import { loginSuccessPage } from '../login-success-page';
+import { createHash, randomBytes } from 'crypto';
+import type { AddressInfo } from 'net';
 import { spawn } from 'child_process';
-import { loadConfig } from './config';
+import { loadConfig, saveConfig } from './config';
 import { Store } from './store';
 import { Embedder } from './embedder';
 import { Watcher } from './watcher';
@@ -13,8 +17,12 @@ import { IpcServer } from './ipc-server';
 import { bootstrapMcpServer } from './mcp/bootstrap';
 import { patchMcpClientByName } from './mcp-register';
 import { ChatEngine } from './chat-engine';
+import { TunnelClient } from './tunnel-client';
 import type { IndexingProgress } from '@nomnomdrive/shared';
 import {
+  loadCloudCredentials,
+  saveCloudCredentials,
+  deleteCloudCredentials,
   checkSetupStatus,
   runSetup,
   downloadMissingModels,
@@ -44,6 +52,7 @@ const emitter = new EventEmitter();
 let tray: Tray | null = null;
 let mainWindow: BrowserWindow | null = null;
 let forceQuit = false;
+let activeTunnelClient: TunnelClient | null = null;
 
 /** Set by whenReady(); called from setup:start after first-run setup completes. */
 let _startEmbedderAndWatcher: (() => Promise<void>) | null = null;
@@ -186,6 +195,28 @@ ipcMain.handle('setup:start', async (_event, options: SetupOptions) => {
   }
 });
 
+// ── Cloud IPC handlers (no store/config dependency — register early) ──────────
+
+ipcMain.handle('cloud:get-status', async () => {
+  const cfg = await loadConfig();
+  const creds = await loadCloudCredentials();
+  return {
+    mode: cfg.mode ?? 'local',
+    serverUrl: cfg.cloud?.serverUrl ?? null,
+    hasCredentials: !!creds?.accessToken,
+  };
+});
+
+ipcMain.handle('cloud:logout', async () => {
+  activeTunnelClient?.stop();
+  activeTunnelClient = null;
+  await deleteCloudCredentials();
+  const cfg = await loadConfig();
+  cfg.mode = 'local';
+  await saveConfig(cfg);
+  mainWindow?.webContents.send('cloud:status-changed');
+});
+
 // ─── IPC handlers for renderer data requests ──────────────────────────────────
 
 // These are set up inside app.whenReady so they have access to `store` and `config`.
@@ -296,6 +327,116 @@ app.whenReady().then(async () => {
     return store.getStats();
   });
 
+  ipcMain.handle('cloud:login', async (_event, serverUrl: string = 'https://cloud.nomnomdrive.app') => {
+    const normalizedUrl = serverUrl.replace(/\/$/, '');
+
+    const verifier = randomBytes(32).toString('base64url');
+    const challenge = createHash('sha256').update(verifier).digest('base64url');
+
+    let resolveCode!: (code: string) => void;
+    let rejectCode!: (err: Error) => void;
+    const codePromise = new Promise<string>((res, rej) => { resolveCode = res; rejectCode = rej; });
+
+    const callbackServer = createServer((req, res) => {
+      const url = new URL(req.url ?? '/', 'http://localhost');
+      const code = url.searchParams.get('code');
+      if (code) {
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(loginSuccessPage(normalizedUrl));
+        resolveCode(code);
+      } else {
+        res.writeHead(400).end('Missing code');
+      }
+    });
+
+    try {
+      await new Promise<void>((r) => callbackServer.listen(0, '127.0.0.1', r));
+      const port = (callbackServer.address() as AddressInfo).port;
+      const redirectUri = `http://127.0.0.1:${port}/callback`;
+
+      const regResponse = await fetch(`${normalizedUrl}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_name: 'NomNomDrive Desktop',
+          redirect_uris: [redirectUri],
+          grant_types: ['authorization_code'],
+          response_types: ['code'],
+          token_endpoint_auth_method: 'none',
+        }),
+      });
+      if (!regResponse.ok) {
+        const text = await regResponse.text();
+        throw new Error(`Client registration failed: ${text}`);
+      }
+      const { client_id: clientId } = await regResponse.json() as { client_id: string };
+
+      const authorizeUrl =
+        `${normalizedUrl}/auth/authorize` +
+        `?response_type=code` +
+        `&client_id=${encodeURIComponent(clientId)}` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+        `&scope=openid+profile+email` +
+        `&code_challenge=${encodeURIComponent(challenge)}` +
+        `&code_challenge_method=S256`;
+
+      shell.openExternal(authorizeUrl);
+
+      const code = await Promise.race([
+        codePromise,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => { rejectCode(new Error('Login timed out (60s)')); reject(new Error('Login timed out (60s)')); }, 60_000),
+        ),
+      ]);
+
+      callbackServer.close();
+
+      const tokenResponse = await fetch(`${normalizedUrl}/auth/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          grant_type: 'authorization_code',
+          code,
+          redirect_uri: redirectUri,
+          client_id: clientId,
+          code_verifier: verifier,
+        }).toString(),
+      });
+      if (!tokenResponse.ok) {
+        const text = await tokenResponse.text();
+        throw new Error(`Token exchange failed: ${text}`);
+      }
+
+      const tokens = await tokenResponse.json() as {
+        access_token: string;
+        refresh_token?: string;
+        expires_in?: number;
+      };
+
+      await saveCloudCredentials({
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token,
+        expiresAt: tokens.expires_in ? Date.now() + tokens.expires_in * 1000 : undefined,
+      });
+
+      const cfg = await loadConfig();
+      cfg.mode = 'cloud';
+      cfg.cloud = { serverUrl: normalizedUrl };
+      await saveConfig(cfg);
+
+      // Start tunnel
+      activeTunnelClient?.stop();
+      activeTunnelClient = new TunnelClient(normalizedUrl, tokens.access_token, store, embedder);
+      activeTunnelClient.connect();
+
+      mainWindow?.webContents.send('cloud:status-changed');
+      return { success: true };
+    } catch (err: unknown) {
+      callbackServer.close();
+      return { success: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
   ipcMain.handle('register-mcp-client', async (_event, client: string) => {
     const port = config.mcp.port;
     return patchMcpClientByName(client, port);
@@ -335,6 +476,21 @@ app.whenReady().then(async () => {
   const shouldStartMcp = app.isPackaged || process.env.NOMNOM_DISABLE_MCP_IN_DEV !== '1';
   if (shouldStartMcp) {
     await bootstrapMcpServer(config, store, embedder);
+  }
+
+  // Start cloud tunnel if mode=cloud and credentials are saved
+  if (config.mode === 'cloud' && config.cloud?.serverUrl) {
+    const creds = await loadCloudCredentials();
+    if (creds?.accessToken) {
+      activeTunnelClient = new TunnelClient(
+        config.cloud.serverUrl,
+        creds.accessToken,
+        store,
+        embedder,
+      );
+      activeTunnelClient.connect();
+      app.on('before-quit', () => activeTunnelClient?.stop());
+    }
   }
 
   // Auto-updater (production only — checks GitHub Releases for new versions).

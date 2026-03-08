@@ -6,3 +6,4 @@ export * from './config';
 export * from './models';
 export * from './mcp-register';
 export * from './setup-engine';
+export * from './tunnel-protocol';

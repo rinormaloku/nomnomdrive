@@ -3,8 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "pnpm --filter @nomnomdrive/shared build && pnpm --filter @nomnomdrive/desktop build",
-    "dev": "pnpm --filter @nomnomdrive/shared build && pnpm --filter @nomnomdrive/desktop dev",
+    "build": "pnpm --filter @nomnomdrive/shared build && pnpm --filter @nomnomdrive/desktop build && pnpm --filter @nomnomdrive/cloud build",
+    "build:cloud": "pnpm --filter @nomnomdrive/shared build && pnpm --filter @nomnomdrive/cloud build",
+    "dev:desktop": "pnpm --filter @nomnomdrive/shared build && pnpm --filter @nomnomdrive/desktop dev",
+    "dev:cloud": "pnpm --filter @nomnomdrive/shared build && pnpm --filter @nomnomdrive/cloud dev",
     "cli": "pnpm --filter @nomnomdrive/desktop cli",
     "nomnomdrive": "pnpm --filter @nomnomdrive/desktop cli",
     "lint": "eslint packages/*/src --ext .ts",

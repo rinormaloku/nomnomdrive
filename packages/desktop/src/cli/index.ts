@@ -6,6 +6,7 @@ import { searchCommand } from './commands/search';
 import { statusCommand } from './commands/status';
 import { startCommand } from './commands/start';
 import { stopCommand } from './commands/stop';
+import { cloudCommand } from './commands/cloud';
 
 const program = new Command();
 
@@ -20,6 +21,7 @@ program.addCommand(searchCommand());
 program.addCommand(statusCommand());
 program.addCommand(startCommand());
 program.addCommand(stopCommand());
+program.addCommand(cloudCommand());
 
 program.parseAsync(process.argv).then(() => {
   process.exit(0);

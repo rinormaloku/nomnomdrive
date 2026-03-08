@@ -40,6 +40,10 @@ declare global {
       openFile: (filePath: string) => void;
       getDocuments: () => Promise<Document[]>;
       getStats: () => Promise<{ fileCount: number; chunkCount: number }>;
+      getCloudStatus: () => Promise<{ mode: string; serverUrl: string | null; hasCredentials: boolean }>;
+      cloudLogin: (serverUrl?: string) => Promise<{ success: boolean; error?: string }>;
+      cloudLogout: () => Promise<void>;
+      onCloudStatusChanged: (cb: () => void) => void;
       registerMcpClient: (
         client: string,
       ) => Promise<{ client: string; registered: boolean; configPath: string }>;
@@ -150,4 +154,8 @@ export const nomnom = {
   setupGetCatalog: () => window.nomnom.setupGetCatalog(),
   setupStart: (options: { watchPath: string; embedModelId: string; chatModelId: string; mcpPort: number }) =>
     window.nomnom.setupStart(options),
+  getCloudStatus: () => window.nomnom.getCloudStatus(),
+  cloudLogin: (serverUrl?: string) => window.nomnom.cloudLogin(serverUrl),
+  cloudLogout: () => window.nomnom.cloudLogout(),
+  onCloudStatusChanged: (cb: () => void) => window.nomnom.onCloudStatusChanged(cb),
 };

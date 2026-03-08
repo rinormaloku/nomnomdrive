@@ -937,6 +937,34 @@ body {
   color: var(--text);
 }
 
+.mcp-url-label-cloud {
+  margin-top: 8px;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mcp-cloud-promo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 4px 14px 12px;
+  padding: 8px 10px;
+  background: var(--accent-light, #e8f0ff);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  border-radius: var(--radius);
+  color: var(--accent);
+  font-size: 11.5px;
+  cursor: pointer;
+  width: calc(100% - 28px);
+  text-align: left;
+  transition: background var(--transition);
+}
+.mcp-cloud-promo:hover {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
 /* MCP scrollbar */
 .mcp-clients-list::-webkit-scrollbar {
   width: 6px;
@@ -991,9 +1019,379 @@ body {
   box-shadow: 0 0 4px rgba(0, 135, 90, 0.4);
 }
 
+.cloud-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 4px rgba(0, 97, 255, 0.4);
+  flex-shrink: 0;
+}
+
 .mcp-port {
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 10.5px;
+}
+
+.status-url-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-size: 11px;
+  transition: background var(--transition), color var(--transition);
+}
+.status-url-btn:hover {
+  background: var(--bg3);
+  color: var(--text);
+}
+.status-url-btn.copied {
+  color: var(--green);
+}
+
+.status-cloud-btn {
+  color: var(--accent);
+  opacity: 0.8;
+}
+.status-cloud-btn:hover {
+  opacity: 1;
+  background: var(--accent-light, #e8f0ff);
+  color: var(--accent);
+}
+.status-cloud-btn.copied {
+  color: var(--green);
+  opacity: 1;
+}
+
+.status-url-text {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 10.5px;
+}
+
+.status-copy-icon {
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+.status-url-btn:hover .status-copy-icon {
+  opacity: 1;
+}
+
+.status-sep {
+  color: var(--text-dim);
+  font-size: 11px;
+  opacity: 0.4;
+  user-select: none;
+}
+
+/* ── Cloud Tab ────────────────────────────────────── */
+
+.cloud-intro {
+  padding: 12px 14px 8px;
+}
+
+.cloud-intro p {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.cloud-body {
+  padding: 0 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cloud-loading {
+  font-size: 12px;
+  color: var(--text-dim);
+  padding: 8px 0;
+}
+
+.cloud-status-card {
+  background: var(--bg2);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cloud-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cloud-mcp-row {
+  align-items: flex-start;
+}
+
+.cloud-mcp-url {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 3px 6px;
+  flex: 1;
+}
+
+.cloud-mcp-url code {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 11px;
+  color: var(--text);
+  flex: 1;
+  word-break: break-all;
+}
+
+.cloud-mcp-copy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  padding: 2px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.cloud-mcp-copy:hover {
+  color: var(--accent);
+  background: var(--bg2);
+}
+
+.cloud-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  width: 52px;
+  flex-shrink: 0;
+}
+
+.cloud-value {
+  font-size: 12px;
+  color: var(--text);
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+}
+
+.cloud-badge {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+}
+
+.cloud-badge.local {
+  background: var(--bg3);
+  color: var(--text-secondary);
+}
+
+.cloud-badge.cloud {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+.cloud-cmd-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cloud-cmd-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.cloud-cmd-desc {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+.cloud-cmd-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 7px 10px;
+}
+
+.cloud-cmd-text {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 11.5px;
+  color: var(--text);
+  flex: 1;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.cloud-cmd-copy {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.cloud-cmd-copy:hover {
+  background: var(--bg3);
+  border-color: #ccc;
+  color: var(--text);
+}
+
+.cloud-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.cloud-hint code {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 10.5px;
+  background: var(--bg3);
+  padding: 1px 4px;
+  border-radius: var(--radius-sm);
+}
+
+.cloud-disconnect-btn {
+  align-self: flex-start;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--red-light);
+  color: var(--red);
+  border: 1px solid #f5c5bc;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.cloud-disconnect-btn:hover:not(:disabled) {
+  background: #ffd6cf;
+  border-color: #e8a89e;
+}
+
+.cloud-disconnect-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.cloud-connect-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.cloud-connect-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 16px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: opacity var(--transition);
+}
+
+.cloud-connect-btn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.cloud-connect-btn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.cloud-connect-spinner {
+  width: 11px;
+  height: 11px;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: cloud-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes cloud-spin {
+  to { transform: rotate(360deg); }
+}
+
+.cloud-error {
+  font-size: 11.5px;
+  color: var(--red);
+  margin: 0;
+}
+
+.cloud-advanced-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.cloud-advanced-toggle:hover {
+  color: var(--text);
+}
+
+.cloud-advanced-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 100%;
+}
+
+.cloud-server-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.cloud-server-input {
+  width: 100%;
+  max-width: 340px;
+  padding: 5px 8px;
+  font-size: 12px;
+  font-family: var(--font);
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  outline: none;
+  box-sizing: border-box;
+}
+
+.cloud-server-input:focus {
+  border-color: var(--accent);
+}
+
+.cloud-server-input:disabled {
+  opacity: 0.6;
 }
 
 .version-label {

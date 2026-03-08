@@ -23,4 +23,10 @@
     </svg>
     MCP
   </button>
+  <button class="tab" class:active={$activeTab === 'cloud'} onclick={() => activeTab.set('cloud')}>
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+      <path d="M12.5 10.5a2.5 2.5 0 000-5 2.5 2.5 0 00-4.87-1A3 3 0 003.5 7.5a2.5 2.5 0 000 5h9z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" />
+    </svg>
+    Cloud
+  </button>
 </div>

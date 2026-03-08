@@ -1,4 +1,7 @@
 import { writable } from 'svelte/store';
+
+export type CloudStatus = { mode: string; serverUrl: string | null; hasCredentials: boolean };
+export const cloudStatus = writable<CloudStatus | null>(null);
 import type { Config, Document, ProcessedFile, Stats, SyncProgress, SetupStoreState, SetupProgressData } from './types';
 
 export const config = writable<Config>({ dropFolder: '', mcpPort: null, chatConfigured: false });
@@ -15,7 +18,7 @@ export const syncProgress = writable<SyncProgress>({
 });
 export const processedFiles = writable<ProcessedFile[]>([]);
 
-export const activeTab = writable<'files' | 'chat' | 'mcp'>('files');
+export const activeTab = writable<'files' | 'chat' | 'mcp' | 'cloud'>('files');
 
 export const updateReady = writable(false);
 

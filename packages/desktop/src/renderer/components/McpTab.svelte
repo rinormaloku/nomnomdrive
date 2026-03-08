@@ -1,7 +1,10 @@
 <script lang="ts">
-  import { config } from '../lib/stores';
+  import { config, activeTab, cloudStatus } from '../lib/stores';
   import { nomnom } from '../lib/nomnom';
   import { showToast } from '../lib/stores';
+
+  $: isCloud = $cloudStatus?.mode === 'cloud' && !!$cloudStatus?.serverUrl;
+  $: cloudMcpUrl = isCloud ? `${$cloudStatus!.serverUrl}/mcp` : null;
 
   const mcpCommands: Record<string, string> = {
     'claude-code': 'claude mcp add --transport http nomnomdrive http://localhost:{PORT}/mcp',
@@ -236,15 +239,54 @@
   </div>
 </div>
 
-<div class="mcp-url-box">
-  <span class="mcp-url-label">MCP Endpoint</span>
-  <div class="mcp-url-value">
-    <code>{mcpEndpoint()}</code>
-    <button class="mcp-url-copy" onclick={copyMcpUrl} title="Copy URL">
-      <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-        <rect x="5" y="5" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.3" />
-        <path d="M11 5V3.5A1.5 1.5 0 009.5 2h-6A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5" stroke="currentColor" stroke-width="1.3" />
+{#if cloudMcpUrl}
+  <div class="mcp-url-box">
+    <span class="mcp-url-label">Local Endpoint</span>
+    <div class="mcp-url-value">
+      <code>{mcpEndpoint()}</code>
+      <button class="mcp-url-copy" onclick={copyMcpUrl} title="Copy URL">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+          <rect x="5" y="5" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.3" />
+          <path d="M11 5V3.5A1.5 1.5 0 009.5 2h-6A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5" stroke="currentColor" stroke-width="1.3" />
+        </svg>
+      </button>
+    </div>
+    <span class="mcp-url-label mcp-url-label-cloud">
+      <svg width="10" height="10" viewBox="0 0 16 16" fill="none" style="vertical-align: -1px">
+        <path d="M13 10.5a3 3 0 00-2.8-4 5 5 0 00-9.2 2 2.5 2.5 0 001 4.8h11a2 2 0 000-4l-.8 1.2z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
       </svg>
-    </button>
+      Cloud Endpoint
+    </span>
+    <div class="mcp-url-value">
+      <code>{cloudMcpUrl}</code>
+      <button class="mcp-url-copy" onclick={() => navigator.clipboard.writeText(cloudMcpUrl!).then(() => showToast('Cloud MCP URL copied'))} title="Copy cloud URL">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+          <rect x="5" y="5" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.3" />
+          <path d="M11 5V3.5A1.5 1.5 0 009.5 2h-6A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5" stroke="currentColor" stroke-width="1.3" />
+        </svg>
+      </button>
+    </div>
   </div>
-</div>
+{:else}
+  <div class="mcp-url-box">
+    <span class="mcp-url-label">MCP Endpoint</span>
+    <div class="mcp-url-value">
+      <code>{mcpEndpoint()}</code>
+      <button class="mcp-url-copy" onclick={copyMcpUrl} title="Copy URL">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+          <rect x="5" y="5" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.3" />
+          <path d="M11 5V3.5A1.5 1.5 0 009.5 2h-6A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5" stroke="currentColor" stroke-width="1.3" />
+        </svg>
+      </button>
+    </div>
+  </div>
+  <button class="mcp-cloud-promo" onclick={() => activeTab.set('cloud')}>
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+      <path d="M13 10.5a3 3 0 00-2.8-4 5 5 0 00-9.2 2 2.5 2.5 0 001 4.8h11a2 2 0 000-4l-.8 1.2z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+    </svg>
+    Connect to cloud to access your data from any device or client
+    <svg width="10" height="10" viewBox="0 0 16 16" fill="none" style="margin-left: auto; flex-shrink:0">
+      <path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button>
+{/if}

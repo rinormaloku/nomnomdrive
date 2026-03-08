@@ -1,18 +1,25 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { activeTab, setupStatus } from './lib/stores';
+  import { activeTab, setupStatus, cloudStatus } from './lib/stores';
   import { initNomnom, nomnom } from './lib/nomnom';
   import Header from './components/Header.svelte';
   import TabBar from './components/TabBar.svelte';
   import FilesTab from './components/FilesTab.svelte';
   import ChatTab from './components/ChatTab.svelte';
   import McpTab from './components/McpTab.svelte';
+  import CloudTab from './components/CloudTab.svelte';
   import StatusBar from './components/StatusBar.svelte';
   import Toast from './components/Toast.svelte';
   import SetupScreen from './components/SetupScreen.svelte';
 
   onMount(async () => {
     initNomnom();
+
+    const refreshCloud = async () => {
+      cloudStatus.set(await nomnom.getCloudStatus());
+    };
+    await refreshCloud();
+    nomnom.onCloudStatusChanged(refreshCloud);
 
     // Check if onboarding is needed
     try {
@@ -47,6 +54,9 @@
   </div>
   <div class="tab-content" class:active={$activeTab === 'mcp'} id="tab-mcp">
     <McpTab />
+  </div>
+  <div class="tab-content" class:active={$activeTab === 'cloud'} id="tab-cloud">
+    <CloudTab />
   </div>
 
   <StatusBar />

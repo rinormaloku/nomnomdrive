@@ -48,6 +48,61 @@ Create a GitHub repo named `homebrew-nomnomdrive` under your account, then copy 
 
 That's it. Homebrew will auto-update the version via `livecheck` on every GitHub release tag.
 
+## Trying out core features
+
+### 1. Start the cloud server
+
+```bash
+pnpm install
+pnpm --filter @nomnomdrive/shared build
+pnpm dev:cloud
+```
+
+> First-time setup requires a `.env` file with Google OAuth credentials and a JWT secret. See [CLOUD-DEV.md](CLOUD-DEV.md) for the full walkthrough.
+
+### 2. Start the desktop app
+
+In a second terminal:
+
+```bash
+pnpm dev
+```
+
+The desktop app starts in local mode — it does not connect to the cloud instance automatically.
+
+### 3. Connect the desktop to the cloud
+
+Build the CLI and log in, pointing it at the local server:
+
+```bash
+pnpm --filter @nomnomdrive/desktop build:main
+node packages/desktop/dist/cli/index.js cloud login --server http://localhost:3030
+```
+
+The `--server` flag is required when targeting a local instance. In production the default (`https://cloud.nomnomdrive.app`) is used, so you can simply run:
+
+```bash
+nomnomdrive cloud login
+```
+
+Check the connection status:
+
+```bash
+node packages/desktop/dist/cli/index.js cloud status
+```
+
+### 4. Start the tunnel daemon
+
+```bash
+node packages/desktop/dist/cli/index.js start
+```
+
+The desktop will connect to the cloud via WebSocket. You can then test MCP tool calls (`search_documents`, `list_folders`, `get_document`) through `http://localhost:3030/mcp`.
+
+For the complete guide including API key generation, MCP inspector testing, and Claude Desktop integration, see [CLOUD-DEV.md](CLOUD-DEV.md).
+
+---
+
 ## Development
 
 ```bash
