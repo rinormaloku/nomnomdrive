@@ -48,8 +48,8 @@ importers:
         specifier: workspace:*
         version: link:../shared
       '@rekog/mcp-nest':
-        specifier: ^1.9.6
-        version: 1.9.6(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(@nestjs/common@10.4.22(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@10.4.22)(@nestjs/jwt@11.0.2(@nestjs/common@10.4.22(reflect-metadata@0.2.2)(rxjs@7.8.2)))(@nestjs/passport@11.0.5(@nestjs/common@10.4.22(reflect-metadata@0.2.2)(rxjs@7.8.2))(passport@0.7.0))(@nestjs/typeorm@10.0.2(@nestjs/common@10.4.22(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@10.4.22)(reflect-metadata@0.2.2)(rxjs@7.8.2)(typeorm@0.3.28(better-sqlite3@12.6.2)(pg@8.20.0)(ts-node@10.9.2(@types/node@22.19.12)(typescript@5.9.3))))(express@5.2.1)(reflect-metadata@0.2.2)(typeorm@0.3.28(better-sqlite3@12.6.2)(pg@8.20.0)(ts-node@10.9.2(@types/node@22.19.12)(typescript@5.9.3)))(zod@4.3.6)
+        specifier: 1.9.7-alpha.0
+        version: 1.9.7-alpha.0(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(@nestjs/common@10.4.22(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@10.4.22)(@nestjs/jwt@11.0.2(@nestjs/common@10.4.22(reflect-metadata@0.2.2)(rxjs@7.8.2)))(@nestjs/passport@11.0.5(@nestjs/common@10.4.22(reflect-metadata@0.2.2)(rxjs@7.8.2))(passport@0.7.0))(@nestjs/typeorm@10.0.2(@nestjs/common@10.4.22(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@10.4.22)(reflect-metadata@0.2.2)(rxjs@7.8.2)(typeorm@0.3.28(better-sqlite3@12.6.2)(pg@8.20.0)(ts-node@10.9.2(@types/node@22.19.12)(typescript@5.9.3))))(express@5.2.1)(reflect-metadata@0.2.2)(typeorm@0.3.28(better-sqlite3@12.6.2)(pg@8.20.0)(ts-node@10.9.2(@types/node@22.19.12)(typescript@5.9.3)))(zod@4.3.6)
       cookie-parser:
         specifier: ^1.4.0
         version: 1.4.7
@@ -1114,8 +1114,8 @@ packages:
     resolution: {integrity: sha512-DmCG8GzysnCZ15bres3N5AHCmwBwYgp0As6xjhQ47rAUTUXxJiK+lLUxaGsX3hd/30qUpVElh05PbGuxRPgJwA==}
     engines: {node: '>= 10'}
 
-  '@rekog/mcp-nest@1.9.6':
-    resolution: {integrity: sha512-df1wScvU4ZT5s1XOOgViBm7xRjOn4PxpddUZ1XnegXn39/J1i2v8EbIly4mOGR0WOiLT49K6/lvYmjRD0Xy/1A==}
+  '@rekog/mcp-nest@1.9.7-alpha.0':
+    resolution: {integrity: sha512-qe4JJ6f+uWNTHkaaUcsNaPjgGkIWvUJbwKRd0DjIOoXyl1tWzw5DP2Jo+f7sBTl+/Bbu1ft7hSXQu2bI2ZHPCg==}
     peerDependencies:
       '@modelcontextprotocol/sdk': '>=1.10.0'
       '@nestjs/common': '>=9.0.0'
@@ -5346,7 +5346,7 @@ snapshots:
       '@reflink/reflink-win32-x64-msvc': 0.1.19
     optional: true
 
-  '@rekog/mcp-nest@1.9.6(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(@nestjs/common@10.4.22(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@10.4.22)(@nestjs/jwt@11.0.2(@nestjs/common@10.4.22(reflect-metadata@0.2.2)(rxjs@7.8.2)))(@nestjs/passport@11.0.5(@nestjs/common@10.4.22(reflect-metadata@0.2.2)(rxjs@7.8.2))(passport@0.7.0))(@nestjs/typeorm@10.0.2(@nestjs/common@10.4.22(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@10.4.22)(reflect-metadata@0.2.2)(rxjs@7.8.2)(typeorm@0.3.28(better-sqlite3@12.6.2)(pg@8.20.0)(ts-node@10.9.2(@types/node@22.19.12)(typescript@5.9.3))))(express@5.2.1)(reflect-metadata@0.2.2)(typeorm@0.3.28(better-sqlite3@12.6.2)(pg@8.20.0)(ts-node@10.9.2(@types/node@22.19.12)(typescript@5.9.3)))(zod@4.3.6)':
+  '@rekog/mcp-nest@1.9.7-alpha.0(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(@nestjs/common@10.4.22(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@10.4.22)(@nestjs/jwt@11.0.2(@nestjs/common@10.4.22(reflect-metadata@0.2.2)(rxjs@7.8.2)))(@nestjs/passport@11.0.5(@nestjs/common@10.4.22(reflect-metadata@0.2.2)(rxjs@7.8.2))(passport@0.7.0))(@nestjs/typeorm@10.0.2(@nestjs/common@10.4.22(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@10.4.22)(reflect-metadata@0.2.2)(rxjs@7.8.2)(typeorm@0.3.28(better-sqlite3@12.6.2)(pg@8.20.0)(ts-node@10.9.2(@types/node@22.19.12)(typescript@5.9.3))))(express@5.2.1)(reflect-metadata@0.2.2)(typeorm@0.3.28(better-sqlite3@12.6.2)(pg@8.20.0)(ts-node@10.9.2(@types/node@22.19.12)(typescript@5.9.3)))(zod@4.3.6)':
     dependencies:
       '@modelcontextprotocol/sdk': 1.27.1(zod@4.3.6)
       '@nestjs/common': 10.4.22(reflect-metadata@0.2.2)(rxjs@7.8.2)
