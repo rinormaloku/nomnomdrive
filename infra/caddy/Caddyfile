@@ -1,0 +1,8 @@
+cloud.nomnomdrive.com {
+    reverse_proxy localhost:3030
+}
+
+# Future placeholder — nomnomdrive.com landing page not yet set up
+# nomnomdrive.com {
+#     respond "Coming soon" 200
+# }
