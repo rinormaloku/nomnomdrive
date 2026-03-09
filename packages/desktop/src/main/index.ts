@@ -327,7 +327,7 @@ app.whenReady().then(async () => {
     return store.getStats();
   });
 
-  ipcMain.handle('cloud:login', async (_event, serverUrl: string = 'https://cloud.nomnomdrive.app') => {
+  ipcMain.handle('cloud:login', async (_event, serverUrl: string = 'https://cloud.nomnomdrive.com') => {
     const normalizedUrl = serverUrl.replace(/\/$/, '');
 
     const verifier = randomBytes(32).toString('base64url');

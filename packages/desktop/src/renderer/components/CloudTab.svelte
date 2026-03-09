@@ -104,7 +104,7 @@
               id="cloud-server-input"
               class="cloud-server-input"
               type="text"
-              placeholder="https://cloud.nomnomdrive.app"
+              placeholder="https://cloud.nomnomdrive.com"
               bind:value={customServerUrl}
               disabled={connecting}
             />

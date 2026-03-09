@@ -11,7 +11,7 @@ function generatePkce(): { verifier: string; challenge: string } {
   return { verifier, challenge };
 }
 
-const DEFAULT_SERVER_URL = 'https://cloud.nomnomdrive.app';
+const DEFAULT_SERVER_URL = 'https://cloud.nomnomdrive.com';
 
 export function cloudCommand(): Command {
   const cloud = new Command('cloud').description('Manage NomNomDrive cloud connection');
