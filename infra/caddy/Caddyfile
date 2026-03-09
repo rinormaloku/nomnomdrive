@@ -2,7 +2,12 @@ cloud.nomnomdrive.com {
     reverse_proxy localhost:3030
 }
 
-# Future placeholder — nomnomdrive.com landing page not yet set up
-# nomnomdrive.com {
-#     respond "Coming soon" 200
-# }
+nomnomdrive.com {
+    handle /favicon.ico {
+        redir https://cloud.nomnomdrive.com/favicon.ico 302
+    }
+    handle /icon.svg {
+        redir https://cloud.nomnomdrive.com/icon.svg 302
+    }
+    respond "Coming soon" 200
+}
