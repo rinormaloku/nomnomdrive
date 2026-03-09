@@ -12,6 +12,15 @@ git submodule update --init --recursive
 echo "==> Rebuilding and restarting containers..."
 docker compose up -d --build
 
+echo "==> Reloading Caddy..."
+if systemctl is-active --quiet caddy; then
+  cp infra/caddy/Caddyfile /etc/caddy/Caddyfile
+  systemctl reload caddy
+  echo "==> Caddy reloaded."
+else
+  echo "==> Caddy is not running, skipping reload."
+fi
+
 echo "==> Waiting for cloud container to be healthy..."
 sleep 5
 
