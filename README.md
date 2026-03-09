@@ -79,7 +79,7 @@ pnpm --filter @nomnomdrive/desktop build:main
 node packages/desktop/dist/cli/index.js cloud login --server http://localhost:3030
 ```
 
-The `--server` flag is required when targeting a local instance. In production the default (`https://cloud.nomnomdrive.app`) is used, so you can simply run:
+The `--server` flag is required when targeting a local instance. In production the default (`https://cloud.nomnomdrive.com`) is used, so you can simply run:
 
 ```bash
 nomnomdrive cloud login
