@@ -14,8 +14,12 @@ docker compose up -d --build
 
 echo "==> Reloading Caddy..."
 if systemctl is-active --quiet caddy; then
-  cp infra/caddy/Caddyfile /etc/caddy/Caddyfile
-  systemctl reload caddy
+  CADDY_CONF=$(systemctl cat caddy | grep -oP '(?<=--config )\S+' | head -1)
+  CADDY_CONF="${CADDY_CONF:-/etc/caddy/Caddyfile}"
+  echo "==> Caddy config path: $CADDY_CONF"
+  cp "$REPO_DIR/infra/caddy/Caddyfile" "$CADDY_CONF"
+  echo "==> Copied Caddyfile to $CADDY_CONF"
+  caddy reload --config "$CADDY_CONF"
   echo "==> Caddy reloaded."
 else
   echo "==> Caddy is not running, skipping reload."
