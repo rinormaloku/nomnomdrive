@@ -1,6 +1,6 @@
 import WebSocket from 'ws';
 import type { Store } from './store';
-import type { Embedder } from './embedder';
+import type { IEmbedder } from './embedder';
 import type { TunnelRequest, TunnelToolCall, TunnelToolResponse, TunnelPong } from '@nomnomdrive/shared';
 import {
   executeSearchDocuments,
@@ -22,7 +22,7 @@ export class TunnelClient {
     private readonly serverUrl: string,
     private readonly token: string,
     private readonly store: Store,
-    private readonly embedder: Embedder,
+    private readonly embedder: IEmbedder,
   ) {}
 
   connect(): void {

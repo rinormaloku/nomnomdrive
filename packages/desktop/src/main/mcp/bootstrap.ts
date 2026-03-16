@@ -4,12 +4,12 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { MCP_SERVER_NAME, MCP_SERVER_VERSION } from '@nomnomdrive/shared';
 import type { AppConfig } from '../config';
 import type { Store } from '../store';
-import type { Embedder } from '../embedder';
+import type { IEmbedder } from '../embedder';
 import { registerSearchTool } from './tools/search.tool';
 import { registerFoldersTool } from './tools/folders.tool';
 import { registerDocumentTool } from './tools/document.tool';
 
-function buildMcpServer(store: Store, embedder: Embedder): McpServer {
+function buildMcpServer(store: Store, embedder: IEmbedder): McpServer {
   const server = new McpServer({
     name: MCP_SERVER_NAME,
     version: MCP_SERVER_VERSION,
@@ -25,7 +25,7 @@ function buildMcpServer(store: Store, embedder: Embedder): McpServer {
 export async function bootstrapMcpServer(
   config: AppConfig,
   store: Store,
-  embedder: Embedder,
+  embedder: IEmbedder,
 ): Promise<void> {
   const httpServer = createServer(async (req, res) => {
     if (req.url !== '/mcp') {

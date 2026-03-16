@@ -1,5 +1,5 @@
 import type { Store } from '../../store';
-import type { Embedder } from '../../embedder';
+import type { IEmbedder } from '../../embedder';
 import type { SearchDocumentsInput, GetDocumentInput } from '@nomnomdrive/shared';
 import type { McpTextContent } from '@nomnomdrive/shared';
 
@@ -7,7 +7,7 @@ export type McpToolResult = { content: McpTextContent[] };
 
 export async function executeSearchDocuments(
   store: Store,
-  embedder: Embedder,
+  embedder: IEmbedder,
   args: SearchDocumentsInput,
 ): Promise<McpToolResult> {
   if (!embedder.isReady()) {

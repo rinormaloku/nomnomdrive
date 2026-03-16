@@ -7,7 +7,7 @@ import { type IndexingProgress } from '@nomnomdrive/shared';
 import { isSupportedExtension, parseDocument } from './parser';
 import { splitIntoChunks } from './chunker';
 import type { Store } from './store';
-import type { Embedder } from './embedder';
+import type { IEmbedder } from './embedder';
 import { makeDocId, makeChunkId } from './store';
 
 type IndexAction = 'upsert' | 'delete';
@@ -19,12 +19,12 @@ interface QueueItem {
 
 export class Indexer {
   private readonly store: Store;
-  private readonly embedder: Embedder;
+  private readonly embedder: IEmbedder;
   private queue: QueueItem[] = [];
   private processing = false;
   private emitter: EventEmitter | null = null;
 
-  constructor(store: Store, embedder: Embedder) {
+  constructor(store: Store, embedder: IEmbedder) {
     this.store = store;
     this.embedder = embedder;
   }

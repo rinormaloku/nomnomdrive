@@ -1,4 +1,4 @@
-import { app, Tray, Menu, BrowserWindow, ipcMain, shell, nativeImage, nativeTheme } from 'electron';
+import { app, Tray, Menu, BrowserWindow, ipcMain, shell, nativeImage, nativeTheme, dialog } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import path from 'path';
 import fs from 'fs';
@@ -10,7 +10,7 @@ import type { AddressInfo } from 'net';
 import { spawn } from 'child_process';
 import { loadConfig, saveConfig } from './config';
 import { Store } from './store';
-import { Embedder } from './embedder';
+import { createEmbedder, type IEmbedder } from './embedder';
 import { Watcher } from './watcher';
 import { Indexer } from './indexer';
 import { IpcServer } from './ipc-server';
@@ -30,6 +30,7 @@ import {
   EMBED_MODELS,
   CHAT_MODELS,
   type SetupOptions,
+  type AppConfig,
 } from '@nomnomdrive/shared';
 
 process.on('uncaughtException', (error) => {
@@ -161,7 +162,7 @@ ipcMain.handle('setup:get-catalog', () => {
   };
 });
 
-ipcMain.handle('setup:start', async (_event, options: SetupOptions) => {
+ipcMain.handle('setup:start', async (_event, options: SetupOptions & { embedConfig?: unknown }) => {
   try {
     const status = await checkSetupStatus();
     const sendProgress = (progress: { phase: string; modelId: string; modelLabel: string; downloaded: number; total: number }) => {
@@ -174,7 +175,7 @@ ipcMain.handle('setup:start', async (_event, options: SetupOptions) => {
 
     if (status.needsSetup || !status.existingConfig) {
       // Full setup — save config + download models
-      await runSetup(options, sendProgress, sendPhaseStart);
+      await runSetup({ ...options, embedConfig: options.embedConfig as import('@nomnomdrive/shared').EmbedConfig | undefined }, sendProgress, sendPhaseStart);
     } else if (status.needsModelDownload && status.existingConfig) {
       // Config exists but models are missing — just download
       await downloadMissingModels(status.existingConfig, sendProgress, sendPhaseStart);
@@ -255,7 +256,7 @@ app.whenReady().then(async () => {
   }
 
   // Create indexer first (watcher needs it)
-  const embedder = new Embedder(config);
+  const embedder = createEmbedder(config);
   const indexer = new Indexer(store, embedder);
   indexer.setEmitter(emitter);
 
@@ -269,7 +270,7 @@ app.whenReady().then(async () => {
     embedder.initialize((downloaded, total) => {
       mainWindow?.webContents.send('setup:progress', {
         phase: 'embed',
-        modelId: config.model.localEmbed,
+        modelId: 'embed',
         modelLabel: 'Embedding model',
         downloaded,
         total,
@@ -467,6 +468,55 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('chat:reset', async () => {
     await chatEngine.resetSession();
+  });
+
+  // ── Settings IPC ──
+  ipcMain.handle('config:get', () => config);
+
+  ipcMain.handle('config:save', async (_event, updates: Partial<AppConfig>) => {
+    const newConfig: AppConfig = {
+      ...config,
+      ...updates,
+      watch: updates.watch ? { ...config.watch, ...updates.watch } : config.watch,
+      model: updates.model ? { ...config.model, ...updates.model } : config.model,
+      mcp: updates.mcp ? { ...config.mcp, ...updates.mcp } : config.mcp,
+    };
+    await saveConfig(newConfig);
+    Object.assign(config, newConfig);
+
+    // Hot-reload watch paths immediately without a restart
+    if (updates.watch?.paths) {
+      const currentPaths = watcher.getWatchedPaths();
+      const newPaths = updates.watch.paths;
+      for (const p of newPaths) {
+        if (!currentPaths.includes(p)) watcher.addPath(p);
+      }
+      for (const p of currentPaths) {
+        if (!newPaths.includes(p)) watcher.removePath(p);
+      }
+      for (const p of newPaths) {
+        await store.upsertFolder(p);
+      }
+    }
+
+    // If the chat model changed, dispose the engine so the next chat:init
+    // re-initializes with the new model instead of returning a stale/failed promise.
+    if (updates.model?.localChat !== undefined) {
+      await chatEngine.dispose();
+    }
+
+    const restartRequired = updates.embed !== undefined || !!updates.model?.localEmbed || !!updates.model?.localChat;
+    mainWindow?.webContents.send('config', {
+      dropFolder: config.watch.paths[0],
+      mcpPort: config.mcp.port,
+      chatConfigured: chatEngine.isConfigured(),
+    });
+    return { restartRequired };
+  });
+
+  ipcMain.handle('open-folder-dialog', async () => {
+    const result = await dialog.showOpenDialog(mainWindow!, { properties: ['openDirectory'] });
+    return result.canceled ? null : result.filePaths[0];
   });
 
   // Start Unix socket IPC server for CLI

@@ -1,5 +1,18 @@
 import type { AppConfig } from './config';
+import { getEmbedConfig } from '@nomnomdrive/shared';
 import { resolveModelPath } from './models';
+import type { EmbedConfig } from '@nomnomdrive/shared';
+
+export interface IEmbedder {
+  initialize(onProgress?: (downloaded: number, total: number) => void): Promise<void>;
+  getEmbedding(text: string): Promise<number[]>;
+  getEmbeddings(texts: string[]): Promise<number[][]>;
+  isReady(): boolean;
+  getDims(): number;
+  dispose(): Promise<void>;
+}
+
+// ── Local (GGUF via node-llama-cpp) ──────────────────────────────────────────
 
 // node-llama-cpp types (dynamic import for ESM compatibility)
 type LlamaContext = {
@@ -15,7 +28,7 @@ type Llama = {
   dispose(): Promise<void>;
 };
 
-export class Embedder {
+export class LocalEmbedder implements IEmbedder {
   private llama: Llama | null = null;
   private model: LlamaModel | null = null;
   private context: LlamaContext | null = null;
@@ -30,8 +43,10 @@ export class Embedder {
   }
 
   async initialize(onProgress?: (downloaded: number, total: number) => void): Promise<void> {
+    const embedCfg = getEmbedConfig(this.config);
+    const modelId = embedCfg.provider === 'local' ? embedCfg.model : this.config.model.localEmbed;
     this.readyPromise = (async () => {
-      this.modelPath = await resolveModelPath(this.config.model.localEmbed, onProgress);
+      this.modelPath = await resolveModelPath(modelId, onProgress);
 
       // Use native runtime import so CommonJS transpilation does not rewrite to require()
       const { getLlama } = await (0, eval)('import("node-llama-cpp")');
@@ -67,7 +82,6 @@ export class Embedder {
     return this.context !== null;
   }
 
-  /** Returns the embedding dimension of the loaded model. Throws if not yet initialized. */
   getDims(): number {
     if (this.dims === null) throw new Error('Embedder not initialized');
     return this.dims;
@@ -86,3 +100,96 @@ export class Embedder {
     this.llama = null;
   }
 }
+
+// ── Remote (OpenAI / OpenAI-compatible / Gemini) ──────────────────────────────
+
+export class RemoteEmbedder implements IEmbedder {
+  private dims: number | null = null;
+  private ready = false;
+  private readonly embedCfg: EmbedConfig & { provider: 'openai' | 'gemini' };
+
+  constructor(embedCfg: EmbedConfig & { provider: 'openai' | 'gemini' }) {
+    this.embedCfg = embedCfg;
+  }
+
+  async initialize(_onProgress?: (downloaded: number, total: number) => void): Promise<void> {
+    // Probe dims with a test call
+    const vec = await this.fetchEmbedding('test');
+    this.dims = vec.length;
+    this.ready = true;
+  }
+
+  private async fetchEmbedding(text: string): Promise<number[]> {
+    const cfg = this.embedCfg;
+    if (cfg.provider === 'openai') {
+      const baseUrl = cfg.baseUrl?.replace(/\/$/, '') ?? 'https://api.openai.com/v1';
+      const res = await fetch(`${baseUrl}/embeddings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${cfg.apiKey}`,
+        },
+        body: JSON.stringify({ model: cfg.model, input: [text] }),
+      });
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(`OpenAI embeddings error ${res.status}: ${body}`);
+      }
+      const json = await res.json() as { data: Array<{ embedding: number[] }> };
+      return json.data[0].embedding;
+    } else {
+      // Gemini
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${cfg.model}:embedContent?key=${cfg.apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: { parts: [{ text }] } }),
+        },
+      );
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(`Gemini embedContent error ${res.status}: ${body}`);
+      }
+      const json = await res.json() as { embedding: { values: number[] } };
+      return json.embedding.values;
+    }
+  }
+
+  async getEmbedding(text: string): Promise<number[]> {
+    if (!this.ready) throw new Error('RemoteEmbedder not initialized');
+    return this.fetchEmbedding(text);
+  }
+
+  async getEmbeddings(texts: string[]): Promise<number[][]> {
+    const results: number[][] = [];
+    for (const text of texts) {
+      results.push(await this.getEmbedding(text));
+    }
+    return results;
+  }
+
+  isReady(): boolean {
+    return this.ready;
+  }
+
+  getDims(): number {
+    if (this.dims === null) throw new Error('RemoteEmbedder not initialized');
+    return this.dims;
+  }
+
+  async dispose(): Promise<void> {
+    // no-op
+  }
+}
+
+// ── Factory ───────────────────────────────────────────────────────────────────
+
+export function createEmbedder(config: AppConfig): IEmbedder {
+  const embedCfg = getEmbedConfig(config);
+  if (embedCfg.provider === 'local') return new LocalEmbedder(config);
+  return new RemoteEmbedder(embedCfg as EmbedConfig & { provider: 'openai' | 'gemini' });
+}
+
+// Backwards-compat alias
+export { LocalEmbedder as Embedder };

@@ -44,6 +44,7 @@ contextBridge.exposeInMainWorld('nomnom', {
   setupStart: (options: {
     watchPath: string;
     embedModelId: string;
+    embedConfig?: unknown;
     chatModelId: string;
     mcpPort: number;
   }): Promise<{ success: boolean; error?: string }> =>
@@ -129,4 +130,12 @@ contextBridge.exposeInMainWorld('nomnom', {
     ipcRenderer.on('update:downloaded', () => cb()),
 
   installUpdate: () => ipcRenderer.send('update:install'),
+
+  // ── Settings ─────────────────────────────────────
+  configGet: (): Promise<unknown> => ipcRenderer.invoke('config:get'),
+
+  configSave: (updates: unknown): Promise<{ restartRequired: boolean }> =>
+    ipcRenderer.invoke('config:save', updates),
+
+  openFolderDialog: (): Promise<string | null> => ipcRenderer.invoke('open-folder-dialog'),
 });

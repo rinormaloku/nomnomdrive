@@ -68,9 +68,18 @@ async function resolveHuggingFaceFilename(repoId: string): Promise<string> {
   const apiUrl = `https://huggingface.co/api/models/${repoId}`;
   const data = await fetchJson(apiUrl);
   const siblings = (data as { siblings?: Array<{ rfilename: string }> }).siblings ?? [];
-  const gguf = siblings.find((s) => s.rfilename.endsWith('.gguf'));
-  if (!gguf) throw new Error(`No GGUF file found in HuggingFace repo: ${repoId}`);
-  return gguf.rfilename;
+  const ggufFiles = siblings.filter((s) => s.rfilename.endsWith('.gguf'));
+  if (ggufFiles.length === 0) throw new Error(`No GGUF file found in HuggingFace repo: ${repoId}`);
+  if (ggufFiles.length === 1) return ggufFiles[0].rfilename;
+
+  // Multiple GGUF files — pick the best default quant.
+  // Preference order: Q4_K_M > Q4_K_S > Q5_K_M > Q5_K_S > Q8_0 > Q6_K > first file
+  const quantPriority = ['Q4_K_M', 'Q4_K_S', 'Q5_K_M', 'Q5_K_S', 'Q8_0', 'Q6_K'];
+  for (const quant of quantPriority) {
+    const match = ggufFiles.find((s) => s.rfilename.includes(quant));
+    if (match) return match.rfilename;
+  }
+  return ggufFiles[0].rfilename;
 }
 
 function fetchJson(url: string): Promise<unknown> {

@@ -6,6 +6,7 @@ import {
   loadConfig,
   getDefaultDropFolder,
   type AppConfig,
+  type EmbedConfig,
   EMBED_MODELS,
   CHAT_MODELS,
   MODEL_CUSTOM,
@@ -13,6 +14,8 @@ import {
   runSetup,
   type SetupProgress,
   DEFAULT_MCP_PORT,
+  DEFAULT_OPENAI_EMBED_MODEL,
+  DEFAULT_GEMINI_EMBED_MODEL,
   registerMcpClients,
 } from '@nomnomdrive/shared';
 
@@ -44,23 +47,41 @@ export function initCommand(): Command {
         console.log(`  Created ${expandedDrop}`);
       }
 
-      // ── Embedding model (from shared catalog) ────────────────────────
-      const embedChoices = [
-        ...EMBED_MODELS.map((m) => ({
-          name: `${m.label} (${m.size})${m.recommended ? ' ← recommended' : ''}`,
-          value: m.id,
-        })),
-        { name: 'Enter custom HuggingFace model path', value: MODEL_CUSTOM },
-      ];
-
-      const embedChoice = await select({
-        message: 'Embedding model:',
-        choices: embedChoices,
+      // ── Embedding provider ────────────────────────────────────────────
+      const providerChoice = await select({
+        message: 'Embedding provider:',
+        choices: [
+          { name: 'Local (GGUF model, runs offline, private)', value: 'local' },
+          { name: 'OpenAI / OpenAI-compatible API', value: 'openai' },
+          { name: 'Google Gemini API', value: 'gemini' },
+        ],
       });
 
-      let embedModelId = embedChoice;
-      if (embedModelId === MODEL_CUSTOM) {
-        embedModelId = await input({ message: 'Custom model (hf:<org>/<repo> or absolute path):' });
+      let embedModelId = EMBED_MODELS[0].id;
+      let embedConfig: EmbedConfig | undefined;
+
+      if (providerChoice === 'local') {
+        const embedChoices = [
+          ...EMBED_MODELS.map((m) => ({
+            name: `${m.label} (${m.size})${m.recommended ? ' ← recommended' : ''}`,
+            value: m.id,
+          })),
+          { name: 'Enter custom HuggingFace model path', value: MODEL_CUSTOM },
+        ];
+        const embedChoice = await select({ message: 'Embedding model:', choices: embedChoices });
+        embedModelId = embedChoice === MODEL_CUSTOM
+          ? await input({ message: 'Custom model (hf:<org>/<repo> or absolute path):' })
+          : embedChoice;
+        embedConfig = { provider: 'local', model: embedModelId };
+      } else if (providerChoice === 'openai') {
+        const apiKey = await input({ message: 'OpenAI API key (sk-…):' });
+        const model = await input({ message: 'Model name:', default: DEFAULT_OPENAI_EMBED_MODEL });
+        const baseUrl = await input({ message: 'Base URL (leave blank for OpenAI; set for Ollama, Azure, etc.):' });
+        embedConfig = { provider: 'openai', model, apiKey, ...(baseUrl ? { baseUrl } : {}) };
+      } else {
+        const apiKey = await input({ message: 'Gemini API key (AIza…):' });
+        const model = await input({ message: 'Model name:', default: DEFAULT_GEMINI_EMBED_MODEL });
+        embedConfig = { provider: 'gemini', model, apiKey };
       }
 
       // ── Chat model (from shared catalog) ─────────────────────────────
@@ -92,11 +113,13 @@ export function initCommand(): Command {
 
       // ── Run shared setup engine ───────────────────────────────────────
       console.log('\n✓ Config saved');
-      console.log('Downloading models (this may take a few minutes on first run)\n');
+      if (!embedConfig || embedConfig.provider === 'local') {
+        console.log('Downloading models (this may take a few minutes on first run)\n');
+      }
 
       let lastPct = -1;
       const savedConfig = await runSetup(
-        { watchPath: expandedDrop, embedModelId, chatModelId, mcpPort },
+        { watchPath: expandedDrop, embedModelId, embedConfig, chatModelId, mcpPort },
         (progress: SetupProgress) => {
           if (progress.total > 0) {
             const pct = Math.floor((progress.downloaded / progress.total) * 100);
@@ -121,7 +144,7 @@ export function initCommand(): Command {
 
       // ── Initialize DB ─────────────────────────────────────────────────
       console.log('\nInitializing database…');
-      const { Embedder } = await import('../../main/embedder');
+      const { createEmbedder } = await import('../../main/embedder');
       const { Store } = await import('../../main/store');
       const store = new Store(savedConfig);
       await store.initialize();
@@ -130,7 +153,7 @@ export function initCommand(): Command {
       }
 
       // Validate embedding dims
-      const embedder = new Embedder(savedConfig);
+      const embedder = createEmbedder(savedConfig);
       await embedder.initialize();
       const storedDims = store.getStoredDims();
       const actualDims = embedder.getDims();
@@ -162,8 +185,13 @@ export function initCommand(): Command {
       console.log('\n─────────────────────────────────────────');
       console.log('NomNomDrive is set up!');
       console.log('');
+      const embedSummary = embedConfig
+        ? embedConfig.provider === 'local'
+          ? embedConfig.model
+          : `${embedConfig.provider} / ${embedConfig.model}`
+        : embedModelId;
       console.log(`  Watch folder : ${expandedDrop}`);
-      console.log(`  Embed model  : ${embedModelId}`);
+      console.log(`  Embed        : ${embedSummary}`);
       console.log(`  Chat model   : ${chatModelId === MODEL_SKIP ? '(none)' : chatModelId}`);
       console.log(`  MCP endpoint : http://localhost:${mcpPort}/mcp`);
       console.log('');

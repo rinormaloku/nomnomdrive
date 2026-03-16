@@ -1,5 +1,5 @@
 import type { AppConfig } from './config';
-import type { Embedder } from './embedder';
+import type { IEmbedder } from './embedder';
 import type { Store } from './store';
 import { resolveModelPath } from './models';
 
@@ -25,10 +25,10 @@ export class ChatEngine {
   private session: LlamaChatSession | null = null;
   private initPromise: Promise<void> | null = null;
   private readonly config: AppConfig;
-  private readonly embedder: Embedder;
+  private readonly embedder: IEmbedder;
   private readonly store: Store;
 
-  constructor(config: AppConfig, embedder: Embedder, store: Store) {
+  constructor(config: AppConfig, embedder: IEmbedder, store: Store) {
     this.config = config;
     this.embedder = embedder;
     this.store = store;
@@ -39,7 +39,12 @@ export class ChatEngine {
   }
 
   async initialize(onProgress?: (downloaded: number, total: number) => void): Promise<void> {
+    // If a previous init succeeded and the model is loaded, nothing to do
+    if (this.session) return;
+
+    // If a previous init is in flight, wait for it (may reject — caller handles that)
     if (this.initPromise) return this.initPromise;
+
     if (!this.config.model.localChat) {
       throw new Error('No chat model configured. Run `nomnomdrive init` to set one up.');
     }
@@ -57,7 +62,13 @@ export class ChatEngine {
       });
     })();
 
-    return this.initPromise;
+    try {
+      return await this.initPromise;
+    } catch (err) {
+      // Clear the cached promise so the next call retries with fresh config
+      this.initPromise = null;
+      throw err;
+    }
   }
 
   async chat(query: string, onChunk?: (text: string) => void): Promise<string> {

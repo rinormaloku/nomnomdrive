@@ -3,6 +3,9 @@
   import { nomnom } from '../lib/nomnom';
   import { setupStatus, setupProgress } from '../lib/stores';
   import type { ModelOption, SetupCatalog } from '../lib/types';
+  import EmbedForm from './settings/EmbedForm.svelte';
+  import type { EmbedConfigValue } from '../lib/types';
+  import ChatModelForm from './settings/ChatModelForm.svelte';
 
   type Step = 'loading' | 'welcome' | 'folder' | 'embed' | 'chat' | 'downloading' | 'done' | 'error';
 
@@ -11,10 +14,8 @@
 
   // Form state
   let watchPath = '';
-  let selectedEmbed = '';
-  let customEmbed = '';
-  let selectedChat = '';
-  let customChat = '';
+  let embedValue: EmbedConfigValue = { provider: 'local', model: '' };
+  let chatModel = '';
   let mcpPort = 23847;
 
   // Download state
@@ -24,8 +25,8 @@
     try {
       catalog = await nomnom.setupGetCatalog();
       watchPath = catalog.defaults.watchPath;
-      selectedEmbed = catalog.defaults.embedModelId;
-      selectedChat = catalog.defaults.chatModelId;
+      embedValue = { provider: 'local', model: catalog.defaults.embedModelId };
+      chatModel = catalog.defaults.chatModelId;
       mcpPort = catalog.defaults.mcpPort;
 
       // Check if we need full setup or just model downloads
@@ -54,17 +55,17 @@
 
   async function startDownload() {
     downloadError = '';
-    const embedId = selectedEmbed === '__custom__' ? customEmbed : selectedEmbed;
-    const chatId = selectedChat === '__custom__' ? customChat :
-                   selectedChat === '__skip__' ? '' : selectedChat;
+    const isLocal = embedValue.provider === 'local';
+    const embedModelId = isLocal ? embedValue.model : '';
 
     try {
       const result = await nomnom.setupStart({
         watchPath,
-        embedModelId: embedId,
-        chatModelId: chatId,
+        embedModelId,
+        embedConfig: embedValue,
+        chatModelId: chatModel,
         mcpPort,
-      });
+      } as Parameters<typeof nomnom.setupStart>[0]);
 
       if (result.success) {
         step = 'done';
@@ -136,34 +137,11 @@
 
     {:else if step === 'embed'}
       <div class="setup-step">
-        <h3 class="setup-step-title">Embedding Model</h3>
-        <p class="setup-step-desc">This model creates searchable representations of your documents.</p>
-        <div class="setup-model-list">
-          {#if catalog}
-            {#each catalog.embedModels as model}
-              <label class="setup-model-option" class:selected={selectedEmbed === model.id}>
-                <input type="radio" name="embed" value={model.id} bind:group={selectedEmbed} />
-                <span class="setup-model-name">
-                  {model.label}
-                  {#if model.recommended}<span class="setup-badge">recommended</span>{/if}
-                </span>
-                <span class="setup-model-size">{model.size}</span>
-              </label>
-            {/each}
-            <label class="setup-model-option" class:selected={selectedEmbed === '__custom__'}>
-              <input type="radio" name="embed" value="__custom__" bind:group={selectedEmbed} />
-              <span class="setup-model-name">Custom model</span>
-            </label>
-          {/if}
-          {#if selectedEmbed === '__custom__'}
-            <input
-              type="text"
-              class="setup-input"
-              bind:value={customEmbed}
-              placeholder="hf:<org>/<repo> or /absolute/path"
-            />
-          {/if}
-        </div>
+        <h3 class="setup-step-title">Embedding</h3>
+        <p class="setup-step-desc">Creates searchable representations of your documents.</p>
+        {#if catalog}
+          <EmbedForm bind:value={embedValue} catalog={catalog.embedModels} />
+        {/if}
         <div class="setup-nav">
           <button class="setup-btn secondary" onclick={() => step = 'folder'}>Back</button>
           <button class="setup-btn primary" onclick={nextFromEmbed}>Next</button>
@@ -174,39 +152,14 @@
       <div class="setup-step">
         <h3 class="setup-step-title">Chat Model</h3>
         <p class="setup-step-desc">For local Q&A with your documents. You can skip this if you only need MCP search.</p>
-        <div class="setup-model-list">
-          {#if catalog}
-            {#each catalog.chatModels as model}
-              <label class="setup-model-option" class:selected={selectedChat === model.id}>
-                <input type="radio" name="chat" value={model.id} bind:group={selectedChat} />
-                <span class="setup-model-name">
-                  {model.label}
-                  {#if model.recommended}<span class="setup-badge">recommended</span>{/if}
-                </span>
-                <span class="setup-model-size">{model.size}</span>
-              </label>
-            {/each}
-            <label class="setup-model-option" class:selected={selectedChat === '__custom__'}>
-              <input type="radio" name="chat" value="__custom__" bind:group={selectedChat} />
-              <span class="setup-model-name">Custom model</span>
-            </label>
-            <label class="setup-model-option" class:selected={selectedChat === '__skip__'}>
-              <input type="radio" name="chat" value="__skip__" bind:group={selectedChat} />
-              <span class="setup-model-name">Skip — I only need MCP search</span>
-            </label>
-          {/if}
-          {#if selectedChat === '__custom__'}
-            <input
-              type="text"
-              class="setup-input"
-              bind:value={customChat}
-              placeholder="hf:<org>/<repo> or /absolute/path"
-            />
-          {/if}
-        </div>
+        {#if catalog}
+          <ChatModelForm bind:value={chatModel} catalog={catalog.chatModels} allowSkip />
+        {/if}
         <div class="setup-nav">
           <button class="setup-btn secondary" onclick={() => step = 'embed'}>Back</button>
-          <button class="setup-btn primary" onclick={nextFromChat}>Download & Finish</button>
+          <button class="setup-btn primary" onclick={nextFromChat}>
+            {embedValue.provider === 'local' ? 'Download & Finish' : 'Finish'}
+          </button>
         </div>
       </div>
 
@@ -327,62 +280,6 @@
 
   .setup-input:focus {
     border-color: var(--accent);
-  }
-
-  .setup-model-list {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    max-height: 200px;
-    overflow-y: auto;
-  }
-
-  .setup-model-option {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 10px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    font-size: 12px;
-    transition: border-color var(--transition), background var(--transition);
-  }
-
-  .setup-model-option:hover {
-    background: var(--bg2);
-  }
-
-  .setup-model-option.selected {
-    border-color: var(--accent);
-    background: var(--accent-light);
-  }
-
-  .setup-model-option input[type="radio"] {
-    margin: 0;
-    accent-color: var(--accent);
-  }
-
-  .setup-model-name {
-    flex: 1;
-    font-weight: 500;
-  }
-
-  .setup-model-size {
-    color: var(--text-dim);
-    font-size: 11px;
-  }
-
-  .setup-badge {
-    display: inline-block;
-    font-size: 9px;
-    font-weight: 600;
-    text-transform: uppercase;
-    color: var(--accent);
-    background: var(--accent-light);
-    padding: 1px 5px;
-    border-radius: 3px;
-    margin-left: 4px;
   }
 
   .setup-nav {

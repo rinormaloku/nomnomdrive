@@ -22,12 +22,50 @@ export interface CloudConfig {
   serverUrl: string;
 }
 
+export type EmbedConfig =
+  | { provider: 'local'; model: string }
+  | { provider: 'openai'; model: string; apiKey: string; baseUrl?: string }
+  | { provider: 'gemini'; model: string; apiKey: string };
+
 export interface AppConfig {
   mode: 'local' | 'cloud';
   watch: WatchConfig;
   model: ModelConfig;
+  embed?: EmbedConfig;
   mcp: McpConfig;
   cloud?: CloudConfig;
+}
+
+/** Returns the active embedding config, falling back to the legacy localEmbed model. */
+export function getEmbedConfig(config: AppConfig): EmbedConfig {
+  if (config.embed) return config.embed;
+  return { provider: 'local', model: config.model.localEmbed };
+}
+
+function serializeEmbedConfig(embed: EmbedConfig): Record<string, unknown> {
+  if (embed.provider === 'openai') {
+    return { provider: 'openai', model: embed.model, api_key: embed.apiKey, ...(embed.baseUrl ? { base_url: embed.baseUrl } : {}) };
+  }
+  if (embed.provider === 'gemini') {
+    return { provider: 'gemini', model: embed.model, api_key: embed.apiKey };
+  }
+  return { provider: 'local', model: embed.model };
+}
+
+function parseEmbedConfig(raw: Record<string, unknown> | undefined): EmbedConfig | undefined {
+  if (!raw?.provider) return undefined;
+  const provider = raw.provider as string;
+  const model = (raw.model as string) ?? '';
+  if (provider === 'openai') {
+    return { provider: 'openai', model, apiKey: (raw.api_key as string) ?? '', baseUrl: raw.base_url as string | undefined };
+  }
+  if (provider === 'gemini') {
+    return { provider: 'gemini', model, apiKey: (raw.api_key as string) ?? '' };
+  }
+  if (provider === 'local') {
+    return { provider: 'local', model };
+  }
+  return undefined;
 }
 
 export interface CloudCredentials {
@@ -153,6 +191,7 @@ export async function loadConfig(): Promise<AppConfig> {
       cloud: (parsed.cloud as Record<string, unknown>)?.server_url
         ? { serverUrl: (parsed.cloud as Record<string, unknown>).server_url as string }
         : undefined,
+      embed: parseEmbedConfig(parsed.embed as Record<string, unknown> | undefined),
     };
   } catch {
     return getDefaultConfig();
@@ -176,6 +215,7 @@ export async function saveConfig(config: AppConfig): Promise<void> {
       port: config.mcp.port,
     },
     ...(config.cloud ? { cloud: { server_url: config.cloud.serverUrl } } : {}),
+    ...(config.embed ? { embed: serializeEmbedConfig(config.embed) } : {}),
   });
   await fs.writeFile(getConfigPath(), raw, 'utf-8');
 }

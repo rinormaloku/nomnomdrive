@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { activeTab, setupStatus, cloudStatus } from './lib/stores';
+  import { activeTab, setupStatus, cloudStatus, settingsOpen } from './lib/stores';
   import { initNomnom, nomnom } from './lib/nomnom';
   import Header from './components/Header.svelte';
   import TabBar from './components/TabBar.svelte';
@@ -11,6 +11,7 @@
   import StatusBar from './components/StatusBar.svelte';
   import Toast from './components/Toast.svelte';
   import SetupScreen from './components/SetupScreen.svelte';
+  import SettingsScreen from './components/SettingsScreen.svelte';
 
   onMount(async () => {
     initNomnom();
@@ -61,4 +62,8 @@
 
   <StatusBar />
   <Toast />
+
+  {#if $settingsOpen}
+    <SettingsScreen />
+  {/if}
 {/if}

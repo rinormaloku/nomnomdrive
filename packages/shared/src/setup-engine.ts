@@ -3,8 +3,10 @@ import {
   loadConfig,
   saveConfig,
   getDefaultDropFolder,
+  getEmbedConfig,
   expandHome,
   type AppConfig,
+  type EmbedConfig,
 } from './config';
 import { resolveModelPath, modelExists, type ProgressCallback } from './models';
 import { EMBED_MODELS, CHAT_MODELS, MODEL_SKIP } from './model-catalog';
@@ -15,6 +17,7 @@ import { DEFAULT_EMBED_MODEL, DEFAULT_CHAT_MODEL, DEFAULT_MCP_PORT } from './con
 export interface SetupOptions {
   watchPath: string;
   embedModelId: string;
+  embedConfig?: EmbedConfig; // when set, overrides embedModelId and skips local download
   chatModelId: string; // use MODEL_SKIP to skip
   mcpPort: number;
 }
@@ -49,7 +52,10 @@ export async function checkSetupStatus(): Promise<SetupStatus> {
   }
 
   const config = await loadConfig();
-  const embedMissing = !(await modelExists(config.model.localEmbed));
+  const embedCfg = getEmbedConfig(config);
+  const embedMissing = embedCfg.provider === 'local'
+    ? !(await modelExists(embedCfg.model))
+    : false; // remote providers don't need local files
   const chatMissing = config.model.localChat
     ? !(await modelExists(config.model.localChat))
     : false;
@@ -87,8 +93,9 @@ export async function runSetup(
   onProgress?: (progress: SetupProgress) => void,
   onPhaseStart?: (phase: SetupPhase, modelId: string) => void,
 ): Promise<AppConfig> {
-  const { watchPath, embedModelId, chatModelId, mcpPort } = options;
+  const { watchPath, embedModelId, embedConfig, chatModelId, mcpPort } = options;
   const skipChat = chatModelId === MODEL_SKIP || !chatModelId;
+  const isRemoteEmbed = embedConfig && embedConfig.provider !== 'local';
 
   // Ensure watch folder exists
   const fs = await import('fs');
@@ -107,9 +114,10 @@ export async function runSetup(
       ...config,
       watch: { ...config.watch, paths },
       model: {
-        localEmbed: embedModelId,
+        localEmbed: isRemoteEmbed ? config.model.localEmbed : embedModelId,
         localChat: skipChat ? '' : chatModelId,
       },
+      embed: embedConfig,
       mcp: { port: mcpPort },
     };
   } catch {
@@ -117,18 +125,15 @@ export async function runSetup(
       mode: 'local',
       watch: { paths: [expandedPath], glob: '**/*' },
       model: {
-        localEmbed: embedModelId,
+        localEmbed: isRemoteEmbed ? DEFAULT_EMBED_MODEL : embedModelId,
         localChat: skipChat ? '' : chatModelId,
       },
+      embed: embedConfig,
       mcp: { port: mcpPort },
     };
   }
 
   await saveConfig(config);
-
-  // ── Download embed model ──
-  const embedLabel = EMBED_MODELS.find((m) => m.id === embedModelId)?.label ?? embedModelId;
-  onPhaseStart?.('embed', embedModelId);
 
   const makeProgress = (phase: SetupPhase, modelId: string, label: string): ProgressCallback => {
     return (downloaded: number, total: number) => {
@@ -136,7 +141,12 @@ export async function runSetup(
     };
   };
 
-  await resolveModelPath(embedModelId, makeProgress('embed', embedModelId, embedLabel));
+  // ── Download embed model (local only) ──
+  if (!isRemoteEmbed) {
+    const embedLabel = EMBED_MODELS.find((m) => m.id === embedModelId)?.label ?? embedModelId;
+    onPhaseStart?.('embed', embedModelId);
+    await resolveModelPath(embedModelId, makeProgress('embed', embedModelId, embedLabel));
+  }
 
   // ── Download chat model ──
   if (!skipChat) {
@@ -157,7 +167,10 @@ export async function downloadMissingModels(
   onProgress?: (progress: SetupProgress) => void,
   onPhaseStart?: (phase: SetupPhase, modelId: string) => void,
 ): Promise<void> {
-  const embedMissing = !(await modelExists(config.model.localEmbed));
+  const embedCfg = getEmbedConfig(config);
+  const embedMissing = embedCfg.provider === 'local'
+    ? !(await modelExists(embedCfg.model))
+    : false;
   const chatMissing = config.model.localChat
     ? !(await modelExists(config.model.localChat))
     : false;
@@ -168,10 +181,10 @@ export async function downloadMissingModels(
     };
   };
 
-  if (embedMissing) {
-    const label = EMBED_MODELS.find((m) => m.id === config.model.localEmbed)?.label ?? config.model.localEmbed;
-    onPhaseStart?.('embed', config.model.localEmbed);
-    await resolveModelPath(config.model.localEmbed, makeProgress('embed', config.model.localEmbed, label));
+  if (embedMissing && embedCfg.provider === 'local') {
+    const label = EMBED_MODELS.find((m) => m.id === embedCfg.model)?.label ?? embedCfg.model;
+    onPhaseStart?.('embed', embedCfg.model);
+    await resolveModelPath(embedCfg.model, makeProgress('embed', embedCfg.model, label));
   }
 
   if (chatMissing) {

@@ -76,3 +76,8 @@ export type SetupStoreState = {
   checked: boolean;
   error?: string;
 };
+
+export type EmbedConfigValue =
+  | { provider: 'local'; model: string }
+  | { provider: 'openai'; model: string; apiKey: string; baseUrl?: string }
+  | { provider: 'gemini'; model: string; apiKey: string };

@@ -5,6 +5,8 @@ export {
   type ModelConfig,
   type McpConfig,
   type AppConfig,
+  type EmbedConfig,
+  getEmbedConfig,
   expandHome,
   getConfigDir,
   getConfigPath,

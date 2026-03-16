@@ -27,6 +27,7 @@ declare global {
       setupStart: (options: {
         watchPath: string;
         embedModelId: string;
+        embedConfig?: unknown;
         chatModelId: string;
         mcpPort: number;
       }) => Promise<{ success: boolean; error?: string }>;
@@ -53,6 +54,10 @@ declare global {
       onUpdateAvailable: (cb: (info: { version: string }) => void) => void;
       onUpdateDownloaded: (cb: () => void) => void;
       installUpdate: () => void;
+      // Settings
+      configGet: () => Promise<unknown>;
+      configSave: (updates: unknown) => Promise<{ restartRequired: boolean }>;
+      openFolderDialog: () => Promise<string | null>;
     };
   }
 }
@@ -152,10 +157,13 @@ export const nomnom = {
   chatReset: () => window.nomnom.chatReset(),
   setupCheck: () => window.nomnom.setupCheck(),
   setupGetCatalog: () => window.nomnom.setupGetCatalog(),
-  setupStart: (options: { watchPath: string; embedModelId: string; chatModelId: string; mcpPort: number }) =>
+  setupStart: (options: { watchPath: string; embedModelId: string; embedConfig?: unknown; chatModelId: string; mcpPort: number }) =>
     window.nomnom.setupStart(options),
   getCloudStatus: () => window.nomnom.getCloudStatus(),
   cloudLogin: (serverUrl?: string) => window.nomnom.cloudLogin(serverUrl),
   cloudLogout: () => window.nomnom.cloudLogout(),
   onCloudStatusChanged: (cb: () => void) => window.nomnom.onCloudStatusChanged(cb),
+  configGet: () => window.nomnom.configGet(),
+  configSave: (updates: unknown) => window.nomnom.configSave(updates),
+  openFolderDialog: () => window.nomnom.openFolderDialog(),
 };
