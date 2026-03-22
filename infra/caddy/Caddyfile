@@ -3,13 +3,6 @@ cloud.nomnomdrive.com {
 }
 
 nomnomdrive.com {
-    handle /favicon.ico {
-        reverse_proxy localhost:3030
-    }
-    handle /icon.svg {
-        reverse_proxy localhost:3030
-    }
-    handle {
-        respond "Coming soon" 200
-    }
+    rewrite / /landing.html
+    reverse_proxy localhost:3030
 }
