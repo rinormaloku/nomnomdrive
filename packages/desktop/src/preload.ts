@@ -69,6 +69,9 @@ contextBridge.exposeInMainWorld('nomnom', {
   onSetupError: (cb: (data: { error: string }) => void) =>
     ipcRenderer.on('setup:error', (_e, data) => cb(data)),
 
+  onSetupGpuFailed: (cb: (data: { gpuType: string; error: string }) => void) =>
+    ipcRenderer.on('setup:gpu-failed', (_e, data) => cb(data)),
+
   setupCancel: (): Promise<void> => ipcRenderer.invoke('setup:cancel'),
 
   // ── Actions ──────────────────────────────────────
@@ -145,7 +148,7 @@ contextBridge.exposeInMainWorld('nomnom', {
   gpuDetect: (): Promise<Array<{ type: string; label: string; size: string }>> =>
     ipcRenderer.invoke('gpu:detect'),
 
-  gpuStatus: (): Promise<{ installed: string | null }> =>
+  gpuStatus: (): Promise<{ installed: string | null; validated?: boolean }> =>
     ipcRenderer.invoke('gpu:status'),
 
   gpuActiveBackend: (): Promise<{ backend: string | null }> =>

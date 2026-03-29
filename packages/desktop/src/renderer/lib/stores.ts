@@ -45,6 +45,8 @@ export const setupProgress = writable<SetupProgressData>({
   total: 0,
 });
 
+export const setupGpuFailed = writable<{ gpuType: string; error: string } | null>(null);
+
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
 export function showToast(message: string, duration = 2000) {
   if (toastTimer) clearTimeout(toastTimer);

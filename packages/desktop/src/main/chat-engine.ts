@@ -2,6 +2,7 @@ import { type AppConfig, type ChatConfig, getChatConfig } from './config';
 import type { IEmbedder } from './embedder';
 import type { Store } from './store';
 import { resolveModelPath } from './models';
+import { getInstalledGpuType } from './gpu-manager';
 import {
   executeSearchDocuments,
   executeListFolders,
@@ -53,9 +54,11 @@ export interface IChatEngine {
 
 // ── Shared constants ──────────────────────────────────────────────────────────
 
-const AGENT_SYSTEM_PROMPT = `You are a document assistant. The user's files are indexed and searchable via your tools. ALWAYS call search_documents before answering. Never say you lack access — search first. Cite filenames in answers.`;
+const AGENT_SYSTEM_PROMPT = `/no_think
+You are a document assistant. The user's files are indexed and searchable via your tools. ALWAYS call search_documents before answering. Never say you lack access — search first. Cite filenames in answers.`;
 
-const RAG_SYSTEM_PROMPT = `You are a helpful assistant that answers questions based on the user's documents. Use ONLY the provided context to answer. If the context doesn't contain relevant information, say so. Be concise and cite document names.`;
+const RAG_SYSTEM_PROMPT = `/no_think
+You are a helpful assistant that answers questions based on the user's documents. Use ONLY the provided context to answer. If the context doesn't contain relevant information, say so. Be concise and cite document names.`;
 
 /** Truncate tool output so it fits in the model's context window. */
 const MAX_TOOL_RESULT_CHARS = 1500;
@@ -119,14 +122,54 @@ export class LocalChatEngine implements IChatEngine {
       console.log(`[ChatEngine] Mode: ${this.useAgentMode ? 'agent (function-calling)' : 'RAG (context-stuffing)'} for ${modelPath}`);
 
       const { getLlama, LlamaChatSession: Session, defineChatSessionFunction } = await (0, eval)('import("node-llama-cpp")');
-      const llama = await getLlama();
+      const installedGpu = getInstalledGpuType();
+      // Try user's chosen GPU backend, fall back to auto-detect if incompatible
+      let llama;
+      if (installedGpu) {
+        try {
+          llama = await getLlama({ gpu: installedGpu });
+        } catch (err) {
+          console.warn(`[ChatEngine] ${installedGpu} backend failed, falling back to auto: ${err}`);
+        }
+      }
+      if (!llama) {
+        llama = await getLlama();
+      }
       const gpuBackend = (llama as { gpu: string | false }).gpu;
       console.log(`[ChatEngine] GPU backend: ${gpuBackend || 'CPU'}`);
-      this.model = await (llama as { loadModel(opts: { modelPath: string }): Promise<LlamaModel> }).loadModel({ modelPath });
-      this.context = await this.model.createContext({ contextSize: 32768, ignoreMemorySafetyChecks: true });
+      // Try loading with full GPU offload first, then progressively fewer GPU layers
+      const gpuLayerOptions = [Infinity, 20, 10, 0];
+      const contextSizes = [8192, 4096, 2048];
+      let loaded = false;
+
+      for (const gpuLayers of gpuLayerOptions) {
+        try {
+          this.model = await (llama as { loadModel(opts: { modelPath: string; gpuLayers?: number }): Promise<LlamaModel> }).loadModel({ modelPath, gpuLayers });
+          console.log(`[ChatEngine] Model loaded with gpuLayers=${gpuLayers}`);
+
+          for (const size of contextSizes) {
+            try {
+              this.context = await this.model.createContext({ contextSize: size, ignoreMemorySafetyChecks: true });
+              console.log(`[ChatEngine] Context created with size ${size}`);
+              loaded = true;
+              break;
+            } catch {
+              console.warn(`[ChatEngine] Context size ${size} failed with gpuLayers=${gpuLayers}, trying smaller...`);
+            }
+          }
+          if (loaded) break;
+
+          // All context sizes failed at this GPU layer count — dispose model and try fewer layers
+          await this.model.dispose?.();
+          this.model = null as unknown as LlamaModel;
+        } catch (err) {
+          console.warn(`[ChatEngine] Model load failed with gpuLayers=${gpuLayers}: ${err}`);
+        }
+      }
+      if (!loaded) throw new Error('Failed to create context at any size/GPU combination');
       this.defineFn = defineChatSessionFunction;
       this.session = new (Session as new (opts: { contextSequence: unknown; systemPrompt: string }) => LlamaChatSession)({
-        contextSequence: this.context.getSequence(),
+        contextSequence: this.context!.getSequence(),
         systemPrompt: systemPrompt,
       });
     })();

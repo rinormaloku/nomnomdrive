@@ -25,6 +25,7 @@ export interface GpuInfo {
 export interface GpuStatus {
   installed: GpuType | null;
   available: GpuInfo[];
+  validated?: boolean;
 }
 
 // ── Paths ────────────────────────────────────────────────────────────────────
@@ -146,13 +147,15 @@ export async function downloadGpuBinary(
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
-      writer.write(Buffer.from(value));
+      const buf = Buffer.from(value);
+      if (!writer.write(buf)) {
+        await new Promise<void>((resolve) => writer.once('drain', resolve));
+      }
       downloaded += value.length;
       onProgress?.(downloaded, contentLength);
     }
-    writer.end();
     await new Promise<void>((resolve, reject) => {
-      writer.on('finish', resolve);
+      writer.end(() => resolve());
       writer.on('error', reject);
     });
   } catch (err) {
@@ -169,9 +172,14 @@ export async function downloadGpuBinary(
   const targetDir = path.join(GPU_MODULES_DIR, ...pkgName.split('/'));
   fs.mkdirSync(targetDir, { recursive: true });
 
+  // On Windows, use the tar bundled with the OS (System32) to avoid Git Bash path issues
+  const tarBin = process.platform === 'win32'
+    ? path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe')
+    : 'tar';
+
   await new Promise<void>((resolve, reject) => {
     execFile(
-      'tar',
+      tarBin,
       ['xzf', tmpPath, '--strip-components=1', '-C', targetDir],
       (err) => (err ? reject(new Error(`tar extraction failed: ${err.message}`)) : resolve()),
     );
@@ -195,6 +203,59 @@ export async function removeGpuBinary(gpuType: GpuType): Promise<void> {
   if (fs.existsSync(targetDir)) {
     fs.rmSync(targetDir, { recursive: true, force: true });
     console.log(`[GPU] Removed ${pkgName} from ${targetDir}`);
+  }
+}
+
+// ── Validation ──────────────────────────────────────────────────────────────
+
+const GPU_VALIDATED_MARKER = '.validated';
+
+/** Check if a GPU binary has been validated (passed a real getLlama() probe). */
+export function isGpuValidated(gpuType: GpuType): boolean {
+  const pkgName = getPackageName(gpuType);
+  if (!pkgName) return false;
+  return fs.existsSync(path.join(GPU_MODULES_DIR, ...pkgName.split('/'), GPU_VALIDATED_MARKER));
+}
+
+/** Write a marker indicating the binary passed validation. */
+function markGpuValidated(gpuType: GpuType): void {
+  const pkgName = getPackageName(gpuType);
+  if (!pkgName) return;
+  const markerPath = path.join(GPU_MODULES_DIR, ...pkgName.split('/'), GPU_VALIDATED_MARKER);
+  fs.writeFileSync(markerPath, new Date().toISOString(), 'utf8');
+}
+
+/**
+ * Validate an installed GPU binary by actually initialising getLlama({ gpu }).
+ * This catches driver/architecture mismatches that DLL-existence checks miss.
+ */
+export async function validateGpuBinary(gpuType: GpuType): Promise<void> {
+  const { getLlama } = await (0, eval)('import("node-llama-cpp")') as {
+    getLlama: (opts?: { gpu: string }) => Promise<{ gpu: string | false; dispose(): Promise<void> }>;
+  };
+  const llama = await getLlama({ gpu: gpuType });
+  await llama.dispose();
+}
+
+/**
+ * Validate a GPU binary after download. On failure, removes the binary and
+ * returns a user-friendly error. On success, writes a .validated marker.
+ */
+export async function validateAndCleanupOnFailure(
+  gpuType: GpuType,
+): Promise<{ valid: boolean; error?: string }> {
+  try {
+    await validateGpuBinary(gpuType);
+    markGpuValidated(gpuType);
+    console.log(`[GPU] ${gpuType} binary validated successfully`);
+    return { valid: true };
+  } catch (err) {
+    const msg =
+      `The downloaded ${gpuType.toUpperCase()} binary is not compatible with this system. ` +
+      `This usually means your GPU driver version or hardware doesn't match the prebuilt binary.`;
+    console.warn(`[GPU] Validation failed for ${gpuType}: ${err}`);
+    await removeGpuBinary(gpuType);
+    return { valid: false, error: msg };
   }
 }
 

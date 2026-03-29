@@ -16,6 +16,8 @@ import {
   registerGpuLoaderHook,
   detectAvailableGpus,
   getInstalledGpuType,
+  isGpuValidated,
+  validateAndCleanupOnFailure,
   downloadGpuBinary,
   removeGpuBinary,
 } from './gpu-manager';
@@ -255,9 +257,23 @@ ipcMain.handle('setup:start', async (_event, options: SetupOptions & { embedConf
         });
         // Register the hook so embedder picks up the GPU binary
         registerGpuLoaderHook();
+        // Validate binary compatibility before proceeding
+        mainWindow?.webContents.send('setup:progress', {
+          phase: 'gpu-validate',
+          modelId: options.gpuType,
+          modelLabel: `Validating ${options.gpuType} compatibility...`,
+          downloaded: 0,
+          total: 0,
+        });
+        const validation = await validateAndCleanupOnFailure(options.gpuType as 'vulkan' | 'cuda');
+        if (!validation.valid) {
+          console.warn(`[Setup] GPU binary validation failed (will use CPU): ${validation.error}`);
+          mainWindow?.webContents.send('setup:gpu-failed', { gpuType: options.gpuType, error: validation.error });
+        }
       } catch (gpuErr) {
         // Non-fatal: log and continue with CPU fallback
         console.warn('[Setup] GPU binary download failed (will use CPU):', gpuErr);
+        mainWindow?.webContents.send('setup:gpu-failed', { gpuType: options.gpuType, error: String(gpuErr) });
       }
     }
 
@@ -311,9 +327,13 @@ ipcMain.handle('cloud:logout', async () => {
 
 ipcMain.handle('gpu:detect', () => detectAvailableGpus());
 
-ipcMain.handle('gpu:status', () => ({
-  installed: getInstalledGpuType(),
-}));
+ipcMain.handle('gpu:status', () => {
+  const installed = getInstalledGpuType();
+  return {
+    installed,
+    validated: installed ? isGpuValidated(installed) : undefined,
+  };
+});
 
 ipcMain.handle('gpu:install', async (_event, gpuType: string) => {
   try {
@@ -328,6 +348,20 @@ ipcMain.handle('gpu:install', async (_event, gpuType: string) => {
     });
     // Re-register the hook so the newly downloaded binary is discoverable
     registerGpuLoaderHook();
+
+    // Validate the binary actually works before declaring success
+    mainWindow?.webContents.send('setup:progress', {
+      phase: 'gpu-validate',
+      modelId: gpuType,
+      modelLabel: `Validating ${gpuType} compatibility...`,
+      downloaded: 0,
+      total: 0,
+    });
+    const validation = await validateAndCleanupOnFailure(gpuType as 'vulkan' | 'cuda');
+    if (!validation.valid) {
+      return { success: false, error: validation.error };
+    }
+
     // Clear the crash marker so model loading is attempted on next restart
     clearModelCrashMarker();
     return { success: true };

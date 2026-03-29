@@ -1,4 +1,4 @@
-import { config, documents, processedFiles, stats, syncActive, syncProgress, updateReady, setupStatus, setupProgress, modelError } from './stores';
+import { config, documents, processedFiles, stats, syncActive, syncProgress, updateReady, setupStatus, setupProgress, setupGpuFailed, modelError } from './stores';
 import { basename } from './utils';
 import type { Document, SetupStatusData, SetupProgressData, ModelOption, SetupCatalog } from './types';
 
@@ -37,6 +37,7 @@ declare global {
       onSetupProgress: (cb: (progress: SetupProgressData) => void) => void;
       onSetupComplete: (cb: () => void) => void;
       onSetupError: (cb: (data: { error: string }) => void) => void;
+      onSetupGpuFailed: (cb: (data: { gpuType: string; error: string }) => void) => void;
       setupCancel: () => Promise<void>;
       // Chat
       onChatChunk: (cb: (chunk: string) => void) => void;
@@ -61,7 +62,7 @@ declare global {
       installUpdate: () => void;
       // GPU acceleration
       gpuDetect: () => Promise<Array<{ type: string; label: string; size: string }>>;
-      gpuStatus: () => Promise<{ installed: string | null }>;
+      gpuStatus: () => Promise<{ installed: string | null; validated?: boolean }>;
       gpuActiveBackend: () => Promise<{ backend: string | null }>;
       gpuInstall: (gpuType: string) => Promise<{ success: boolean; error?: string }>;
       gpuRemove: (gpuType: string) => Promise<{ success: boolean; error?: string }>;
@@ -174,6 +175,10 @@ export function initNomnom() {
 
   window.nomnom.onSetupError((data) => {
     setupStatus.update((s) => ({ ...s, error: data.error }));
+  });
+
+  window.nomnom.onSetupGpuFailed((data) => {
+    setupGpuFailed.set(data);
   });
 }
 

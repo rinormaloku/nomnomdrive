@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { nomnom } from '../lib/nomnom';
-  import { setupStatus, setupProgress, activeTab } from '../lib/stores';
+  import { setupStatus, setupProgress, setupGpuFailed, activeTab } from '../lib/stores';
   import type { ModelOption, SetupCatalog } from '../lib/types';
   import EmbedForm from './settings/EmbedForm.svelte';
   import type { EmbedConfigValue, ChatConfigValue } from '../lib/types';
@@ -275,6 +275,11 @@
         <p class="setup-subtitle">
           Models are downloaded and ready. Your documents will be indexed automatically.
         </p>
+        {#if $setupGpuFailed}
+          <div class="setup-gpu-notice">
+            GPU acceleration ({$setupGpuFailed.gpuType.toUpperCase()}) could not be activated — your system may not be compatible. The app is running on CPU. You can retry from Settings.
+          </div>
+        {/if}
         <button class="setup-btn primary" onclick={finish}>Start Using NomNomDrive</button>
       </div>
 
@@ -294,6 +299,18 @@
 </div>
 
 <style>
+  .setup-gpu-notice {
+    background: rgba(229, 161, 0, 0.1);
+    border: 1px solid rgba(229, 161, 0, 0.3);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    color: var(--yellow, #e5a100);
+    font-size: 13px;
+    line-height: 1.5;
+    text-align: center;
+  }
+
   .setup-overlay {
     position: fixed;
     inset: 0;

@@ -2,6 +2,7 @@ import type { AppConfig } from './config';
 import { getEmbedConfig } from '@nomnomdrive/shared';
 import { resolveModelPath } from './models';
 import type { EmbedConfig } from '@nomnomdrive/shared';
+import { getInstalledGpuType } from './gpu-manager';
 
 export interface IEmbedder {
   initialize(onProgress?: (downloaded: number, total: number) => void): Promise<void>;
@@ -54,7 +55,20 @@ export class LocalEmbedder implements IEmbedder {
 
       // Use native runtime import so CommonJS transpilation does not rewrite to require()
       const { getLlama } = await (0, eval)('import("node-llama-cpp")');
-      this.llama = (await getLlama()) as unknown as Llama;
+      const installedGpu = getInstalledGpuType();
+      // Try the user's chosen GPU backend, fall back to auto-detect if incompatible
+      let llama: Llama | null = null;
+      if (installedGpu) {
+        try {
+          llama = (await getLlama({ gpu: installedGpu })) as unknown as Llama;
+        } catch (err) {
+          console.warn(`[Embedder] ${installedGpu} backend failed, falling back to auto: ${err}`);
+        }
+      }
+      if (!llama) {
+        llama = (await getLlama()) as unknown as Llama;
+      }
+      this.llama = llama;
       this.gpuBackend = this.llama.gpu;
       console.log(`[Embedder] GPU backend: ${this.gpuBackend || 'CPU'}`);
       this.model = await this.llama.loadModel({ modelPath: this.modelPath });

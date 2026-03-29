@@ -160,6 +160,9 @@ export function getModelsDir(): string {
 }
 
 export function getDaemonSockPath(): string {
+  if (process.platform === 'win32') {
+    return '\\\\.\\pipe\\nomnomdrive-daemon';
+  }
   return path.join(getDataDir(), 'daemon.sock');
 }
 

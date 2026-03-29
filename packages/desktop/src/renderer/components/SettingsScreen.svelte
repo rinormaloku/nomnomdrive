@@ -32,6 +32,7 @@
 
   // GPU state
   let gpuInstalled: string | null = null;
+  let gpuValidated: boolean | undefined = undefined;
   let gpuAvailable: Array<{ type: string; label: string; size: string }> = [];
   let gpuInstalling = false;
   let gpuRemoving = false;
@@ -60,6 +61,7 @@
         nomnom.gpuActiveBackend(),
       ]);
       gpuInstalled = gpuStatus.installed;
+      gpuValidated = gpuStatus.validated;
       gpuAvailable = detected;
       gpuActiveBackend = activeBackend.backend;
     } finally {
@@ -73,9 +75,12 @@
       const result = await nomnom.gpuInstall(gpuType);
       if (result.success) {
         gpuInstalled = gpuType;
-        showToast(`GPU acceleration (${gpuType}) installed — restart to activate`);
+        gpuValidated = true;
+        showToast(`GPU acceleration (${gpuType}) installed and verified — restart to activate`);
       } else {
-        showToast(`GPU install failed: ${result.error}`, 4000);
+        gpuInstalled = null;
+        gpuValidated = undefined;
+        showToast(`GPU binary is not compatible with your system. ${result.error ?? 'Using CPU instead.'}`, 6000);
       }
     } catch (e: unknown) {
       showToast(`GPU install failed: ${e instanceof Error ? e.message : String(e)}`, 4000);
@@ -91,6 +96,7 @@
       const result = await nomnom.gpuRemove(gpuInstalled);
       if (result.success) {
         gpuInstalled = null;
+        gpuValidated = undefined;
         showToast('GPU acceleration removed — restart to use CPU');
       }
     } finally {
@@ -171,7 +177,11 @@
         {#if gpuInstalled}
           <div class="gpu-status">
             <span class="gpu-badge">{gpuInstalled.toUpperCase()}</span>
-            <span class="gpu-active">Active</span>
+            {#if gpuValidated === false}
+              <span class="gpu-warning">Not verified</span>
+            {:else}
+              <span class="gpu-active">Active</span>
+            {/if}
             <button class="btn-link danger" onclick={removeGpu} disabled={gpuRemoving}>
               {gpuRemoving ? 'Removing...' : 'Remove'}
             </button>
@@ -385,6 +395,11 @@
 
   .gpu-active {
     color: var(--green);
+    font-weight: 600;
+  }
+
+  .gpu-warning {
+    color: var(--yellow, #e5a100);
     font-weight: 600;
   }
 
