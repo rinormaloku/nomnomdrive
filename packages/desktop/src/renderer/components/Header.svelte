@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { config, settingsOpen } from '../lib/stores';
+  import { config, activeTab } from '../lib/stores';
   import { nomnom } from '../lib/nomnom';
 </script>
 
@@ -40,7 +40,7 @@
       </svg>
       <span>Open Folder</span>
     </button>
-    <button class="icon-btn" title="Settings" onclick={() => settingsOpen.set(true)}>
+    <button class="icon-btn" title="Settings" onclick={() => activeTab.set('settings')}>
       <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
         <path d="M8 10a2 2 0 100-4 2 2 0 000 4z" stroke="currentColor" stroke-width="1.3" />
         <path d="M13.5 8a5.5 5.5 0 01-.3 1.8l1.3 1-1 1.7-1.5-.6a5.5 5.5 0 01-1.5.9L10 14H8l-.5-1.2a5.5 5.5 0 01-1.5-.9l-1.5.6-1-1.7 1.3-1A5.5 5.5 0 014.5 8c0-.6.1-1.2.3-1.8l-1.3-1 1-1.7 1.5.6A5.5 5.5 0 017.5 3.2L8 2h2l.5 1.2a5.5 5.5 0 011.5.9l1.5-.6 1 1.7-1.3 1c.2.6.3 1.2.3 1.8z" stroke="currentColor" stroke-width="1.3" />

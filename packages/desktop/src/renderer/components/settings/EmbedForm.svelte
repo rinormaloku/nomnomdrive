@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { ModelOption, EmbedConfigValue } from '../../lib/types';
+  import GgufPicker from './GgufPicker.svelte';
 
   export let value: EmbedConfigValue = { provider: 'local', model: '' };
   export let catalog: ModelOption[] = [];
@@ -9,6 +10,7 @@
   let localModel = value.provider === 'local' ? value.model : '';
   let localCustom = '';
   let localIsCustom = false;
+  let ggufFile = '';
   let openaiModel = value.provider === 'openai' ? value.model : 'text-embedding-3-small';
   let openaiKey = value.provider === 'openai' ? value.apiKey : '';
   let openaiBaseUrl = value.provider === 'openai' ? (value.baseUrl ?? '') : '';
@@ -20,16 +22,35 @@
     const inCatalog = catalog.some((m) => m.id === localModel);
     if (!inCatalog && localModel) {
       localIsCustom = true;
-      localCustom = localModel;
+      localCustom = localModel.startsWith('hf:') ? localModel.slice(3) : localModel;
       localModel = '__custom__';
     } else if (!localModel && catalog.length) {
       localModel = catalog[0].id;
     }
   }
 
+  function parseHfRepo(input: string): string | null {
+    let cleaned = input.trim();
+    if (cleaned.startsWith('hf:')) cleaned = cleaned.slice(3);
+    const parts = cleaned.split('/');
+    return parts.length === 2 && parts[0] && parts[1] ? parts.join('/') : null;
+  }
+
+  $: hfRepoId = localModel === '__custom__' ? parseHfRepo(localCustom) : null;
+  $: if (hfRepoId === null) ggufFile = '';
+
   function syncValue() {
     if (provider === 'local') {
-      const model = localModel === '__custom__' ? localCustom : localModel;
+      let model = localModel === '__custom__' ? localCustom.trim() : localModel;
+      // Auto-prepend hf: for org/repo patterns
+      if (localModel === '__custom__' && model && !model.startsWith('/') && !model.startsWith('hf:')) {
+        const repo = parseHfRepo(model);
+        if (repo) model = 'hf:' + model;
+      }
+      // Append selected GGUF file to hf:org/repo
+      if (localModel === '__custom__' && ggufFile && parseHfRepo(localCustom)) {
+        model = 'hf:' + parseHfRepo(localCustom) + '/' + ggufFile;
+      }
       value = { provider: 'local', model };
     } else if (provider === 'openai') {
       value = { provider: 'openai', model: openaiModel, apiKey: openaiKey, ...(openaiBaseUrl ? { baseUrl: openaiBaseUrl } : {}) };
@@ -38,7 +59,7 @@
     }
   }
 
-  $: { provider; localModel; localCustom; openaiModel; openaiKey; openaiBaseUrl; geminiModel; geminiKey; syncValue(); }
+  $: { provider; localModel; localCustom; ggufFile; openaiModel; openaiKey; openaiBaseUrl; geminiModel; geminiKey; syncValue(); }
 </script>
 
 <div class="embed-form">
@@ -68,9 +89,12 @@
           class="field-input"
           type="text"
           bind:value={localCustom}
-          placeholder="hf:<org>/<repo> or /absolute/path"
+          placeholder="org/repo (e.g. Qwen/Qwen3-Embedding-0.6B-GGUF)"
         />
       </div>
+      {#if hfRepoId}
+        <GgufPicker repoId={hfRepoId} bind:selectedFile={ggufFile} />
+      {/if}
     {/if}
 
   {:else if provider === 'openai'}

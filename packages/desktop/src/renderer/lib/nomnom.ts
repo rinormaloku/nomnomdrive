@@ -1,4 +1,4 @@
-import { config, documents, processedFiles, stats, syncActive, syncProgress, updateReady, setupStatus, setupProgress } from './stores';
+import { config, documents, processedFiles, stats, syncActive, syncProgress, updateReady, setupStatus, setupProgress, modelError } from './stores';
 import { basename } from './utils';
 import type { Document, SetupStatusData, SetupProgressData, ModelOption, SetupCatalog } from './types';
 
@@ -18,6 +18,7 @@ declare global {
       onIndexingError: (cb: (data: { filePath: string; error: string }) => void) => void;
       onIndexingDeleted: (cb: (data: { filePath: string }) => void) => void;
       onModelReady: (cb: () => void) => void;
+      onModelError: (cb: (data: { error: string }) => void) => void;
       onConfig: (
         cb: (config: { dropFolder: string; mcpPort: number | null; chatConfigured: boolean }) => void,
       ) => void;
@@ -29,13 +30,16 @@ declare global {
         embedModelId: string;
         embedConfig?: unknown;
         chatModelId: string;
+        chatConfig?: unknown;
         mcpPort: number;
       }) => Promise<{ success: boolean; error?: string }>;
       onSetupProgress: (cb: (progress: SetupProgressData) => void) => void;
       onSetupComplete: (cb: () => void) => void;
       onSetupError: (cb: (data: { error: string }) => void) => void;
+      setupCancel: () => Promise<void>;
       // Chat
       onChatChunk: (cb: (chunk: string) => void) => void;
+      onChatToolCall: (cb: (data: { name: string; params: Record<string, unknown>; result: string }) => void) => void;
       openDropFolder: (folderPath: string) => void;
       openExternalUrl: (url: string) => void;
       openFile: (filePath: string) => void;
@@ -54,10 +58,18 @@ declare global {
       onUpdateAvailable: (cb: (info: { version: string }) => void) => void;
       onUpdateDownloaded: (cb: () => void) => void;
       installUpdate: () => void;
+      // Models
+      listGgufFiles: (repoId: string) => Promise<Array<{ filename: string; size: number }>>;
       // Settings
       configGet: () => Promise<unknown>;
       configSave: (updates: unknown) => Promise<{ restartRequired: boolean }>;
       openFolderDialog: () => Promise<string | null>;
+      copyToWatchFolder: (filePaths: string[]) => Promise<{
+        success: boolean;
+        error?: string;
+        results?: Array<{ path: string; error?: string }>;
+      }>;
+      getPathForFile: (file: File) => string;
     };
   }
 }
@@ -128,6 +140,18 @@ export function initNomnom() {
     window.dispatchEvent(new CustomEvent('chat-chunk', { detail: chunk }));
   });
 
+  window.nomnom.onChatToolCall((data) => {
+    window.dispatchEvent(new CustomEvent('chat-tool-call', { detail: data }));
+  });
+
+  window.nomnom.onModelReady(() => {
+    modelError.set(null);
+  });
+
+  window.nomnom.onModelError(({ error }) => {
+    modelError.set(error);
+  });
+
   window.nomnom.onUpdateDownloaded(() => {
     updateReady.set(true);
   });
@@ -157,13 +181,17 @@ export const nomnom = {
   chatReset: () => window.nomnom.chatReset(),
   setupCheck: () => window.nomnom.setupCheck(),
   setupGetCatalog: () => window.nomnom.setupGetCatalog(),
-  setupStart: (options: { watchPath: string; embedModelId: string; embedConfig?: unknown; chatModelId: string; mcpPort: number }) =>
+  setupStart: (options: { watchPath: string; embedModelId: string; embedConfig?: unknown; chatModelId: string; chatConfig?: unknown; mcpPort: number }) =>
     window.nomnom.setupStart(options),
+  setupCancel: () => window.nomnom.setupCancel(),
   getCloudStatus: () => window.nomnom.getCloudStatus(),
   cloudLogin: (serverUrl?: string) => window.nomnom.cloudLogin(serverUrl),
   cloudLogout: () => window.nomnom.cloudLogout(),
   onCloudStatusChanged: (cb: () => void) => window.nomnom.onCloudStatusChanged(cb),
+  listGgufFiles: (repoId: string) => window.nomnom.listGgufFiles(repoId),
   configGet: () => window.nomnom.configGet(),
   configSave: (updates: unknown) => window.nomnom.configSave(updates),
   openFolderDialog: () => window.nomnom.openFolderDialog(),
+  copyToWatchFolder: (filePaths: string[]) => window.nomnom.copyToWatchFolder(filePaths),
+  getPathForFile: (file: File) => window.nomnom.getPathForFile(file),
 };

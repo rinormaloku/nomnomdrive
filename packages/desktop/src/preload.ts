@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 
 contextBridge.exposeInMainWorld('nomnom', {
   // ── Event listeners ──────────────────────────────
@@ -24,6 +24,9 @@ contextBridge.exposeInMainWorld('nomnom', {
   onModelReady: (cb: () => void) =>
     ipcRenderer.on('model:ready', () => cb()),
 
+  onModelError: (cb: (data: { error: string }) => void) =>
+    ipcRenderer.on('model:error', (_e, data) => cb(data)),
+
   onConfig: (cb: (config: { dropFolder: string; mcpPort: number | null; chatConfigured: boolean }) => void) =>
     ipcRenderer.on('config', (_e, config) => cb(config)),
 
@@ -46,6 +49,7 @@ contextBridge.exposeInMainWorld('nomnom', {
     embedModelId: string;
     embedConfig?: unknown;
     chatModelId: string;
+    chatConfig?: unknown;
     mcpPort: number;
   }): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke('setup:start', options),
@@ -63,6 +67,8 @@ contextBridge.exposeInMainWorld('nomnom', {
 
   onSetupError: (cb: (data: { error: string }) => void) =>
     ipcRenderer.on('setup:error', (_e, data) => cb(data)),
+
+  setupCancel: (): Promise<void> => ipcRenderer.invoke('setup:cancel'),
 
   // ── Actions ──────────────────────────────────────
   openDropFolder: (folderPath: string) =>
@@ -119,6 +125,9 @@ contextBridge.exposeInMainWorld('nomnom', {
   onChatChunk: (cb: (chunk: string) => void) =>
     ipcRenderer.on('chat:chunk', (_e, chunk) => cb(chunk)),
 
+  onChatToolCall: (cb: (data: { name: string; params: Record<string, unknown>; result: string }) => void) =>
+    ipcRenderer.on('chat:tool-call', (_e, data) => cb(data)),
+
   chatReset: (): Promise<void> =>
     ipcRenderer.invoke('chat:reset'),
 
@@ -131,6 +140,10 @@ contextBridge.exposeInMainWorld('nomnom', {
 
   installUpdate: () => ipcRenderer.send('update:install'),
 
+  // ── Models ──────────────────────────────────────
+  listGgufFiles: (repoId: string): Promise<Array<{ filename: string; size: number }>> =>
+    ipcRenderer.invoke('model:list-gguf', repoId),
+
   // ── Settings ─────────────────────────────────────
   configGet: (): Promise<unknown> => ipcRenderer.invoke('config:get'),
 
@@ -138,4 +151,12 @@ contextBridge.exposeInMainWorld('nomnom', {
     ipcRenderer.invoke('config:save', updates),
 
   openFolderDialog: (): Promise<string | null> => ipcRenderer.invoke('open-folder-dialog'),
+
+  copyToWatchFolder: (filePaths: string[]): Promise<{
+    success: boolean;
+    error?: string;
+    results?: Array<{ path: string; error?: string }>;
+  }> => ipcRenderer.invoke('drop:copy-to-watch', filePaths),
+
+  getPathForFile: (file: File): string => webUtils.getPathForFile(file),
 });

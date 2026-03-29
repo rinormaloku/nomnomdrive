@@ -183,6 +183,42 @@ export class RemoteEmbedder implements IEmbedder {
   }
 }
 
+// ── Proxy (swappable inner embedder for hot-reload) ──────────────────────────
+
+export class EmbedderProxy implements IEmbedder {
+  private inner: IEmbedder;
+
+  constructor(inner: IEmbedder) {
+    this.inner = inner;
+  }
+
+  /** Swap the inner embedder and dispose the old one. */
+  async swap(newInner: IEmbedder): Promise<void> {
+    const old = this.inner;
+    this.inner = newInner;
+    await old.dispose();
+  }
+
+  initialize(onProgress?: (downloaded: number, total: number) => void): Promise<void> {
+    return this.inner.initialize(onProgress);
+  }
+  getEmbedding(text: string): Promise<number[]> {
+    return this.inner.getEmbedding(text);
+  }
+  getEmbeddings(texts: string[]): Promise<number[][]> {
+    return this.inner.getEmbeddings(texts);
+  }
+  isReady(): boolean {
+    return this.inner.isReady();
+  }
+  getDims(): number {
+    return this.inner.getDims();
+  }
+  dispose(): Promise<void> {
+    return this.inner.dispose();
+  }
+}
+
 // ── Factory ───────────────────────────────────────────────────────────────────
 
 export function createEmbedder(config: AppConfig): IEmbedder {

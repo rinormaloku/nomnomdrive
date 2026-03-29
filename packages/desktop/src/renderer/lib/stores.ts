@@ -18,9 +18,12 @@ export const syncProgress = writable<SyncProgress>({
 });
 export const processedFiles = writable<ProcessedFile[]>([]);
 
-export const activeTab = writable<'files' | 'chat' | 'mcp' | 'cloud'>('files');
+export const activeTab = writable<'files' | 'chat' | 'mcp' | 'cloud' | 'settings'>('files');
 
 export const updateReady = writable(false);
+
+/** Non-null when the embedding model failed to load — blocks indexing. */
+export const modelError = writable<string | null>(null);
 
 export const toastStore = writable<{ message: string; visible: boolean }>({
   message: '',
@@ -41,8 +44,6 @@ export const setupProgress = writable<SetupProgressData>({
   downloaded: 0,
   total: 0,
 });
-
-export const settingsOpen = writable(false);
 
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
 export function showToast(message: string, duration = 2000) {

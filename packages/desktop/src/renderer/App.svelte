@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { activeTab, setupStatus, cloudStatus, settingsOpen } from './lib/stores';
+  import { activeTab, setupStatus, cloudStatus } from './lib/stores';
   import { initNomnom, nomnom } from './lib/nomnom';
   import Header from './components/Header.svelte';
   import TabBar from './components/TabBar.svelte';
@@ -59,11 +59,10 @@
   <div class="tab-content" class:active={$activeTab === 'cloud'} id="tab-cloud">
     <CloudTab />
   </div>
+  <div class="tab-content" class:active={$activeTab === 'settings'} id="tab-settings">
+    <SettingsScreen />
+  </div>
 
   <StatusBar />
   <Toast />
-
-  {#if $settingsOpen}
-    <SettingsScreen />
-  {/if}
 {/if}

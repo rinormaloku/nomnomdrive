@@ -30,7 +30,7 @@
     "electron-updater": "^6.0.0",
     "fast-glob": "^3.3.0",
     "mammoth": "^1.8.0",
-    "node-llama-cpp": "^3.0.0",
+    "node-llama-cpp": "3.16.2",
     "officeparser": "^6.0.0",
     "pdf-parse": "^1.1.1",
     "picomatch": "^4.0.0",

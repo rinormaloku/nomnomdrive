@@ -27,11 +27,16 @@ export type EmbedConfig =
   | { provider: 'openai'; model: string; apiKey: string; baseUrl?: string }
   | { provider: 'gemini'; model: string; apiKey: string };
 
+export type ChatConfig =
+  | { provider: 'local'; model: string }
+  | { provider: 'openai'; model: string; apiKey: string; baseUrl?: string };
+
 export interface AppConfig {
   mode: 'local' | 'cloud';
   watch: WatchConfig;
   model: ModelConfig;
   embed?: EmbedConfig;
+  chat?: ChatConfig;
   mcp: McpConfig;
   cloud?: CloudConfig;
 }
@@ -42,6 +47,12 @@ export function getEmbedConfig(config: AppConfig): EmbedConfig {
   return { provider: 'local', model: config.model.localEmbed };
 }
 
+/** Returns the active chat config, falling back to the legacy localChat model. */
+export function getChatConfig(config: AppConfig): ChatConfig {
+  if (config.chat) return config.chat;
+  return { provider: 'local', model: config.model.localChat };
+}
+
 function serializeEmbedConfig(embed: EmbedConfig): Record<string, unknown> {
   if (embed.provider === 'openai') {
     return { provider: 'openai', model: embed.model, api_key: embed.apiKey, ...(embed.baseUrl ? { base_url: embed.baseUrl } : {}) };
@@ -50,6 +61,26 @@ function serializeEmbedConfig(embed: EmbedConfig): Record<string, unknown> {
     return { provider: 'gemini', model: embed.model, api_key: embed.apiKey };
   }
   return { provider: 'local', model: embed.model };
+}
+
+function serializeChatConfig(chat: ChatConfig): Record<string, unknown> {
+  if (chat.provider === 'openai') {
+    return { provider: 'openai', model: chat.model, api_key: chat.apiKey, ...(chat.baseUrl ? { base_url: chat.baseUrl } : {}) };
+  }
+  return { provider: 'local', model: chat.model };
+}
+
+function parseChatConfig(raw: Record<string, unknown> | undefined): ChatConfig | undefined {
+  if (!raw?.provider) return undefined;
+  const provider = raw.provider as string;
+  const model = (raw.model as string) ?? '';
+  if (provider === 'openai') {
+    return { provider: 'openai', model, apiKey: (raw.api_key as string) ?? '', baseUrl: raw.base_url as string | undefined };
+  }
+  if (provider === 'local') {
+    return { provider: 'local', model };
+  }
+  return undefined;
 }
 
 function parseEmbedConfig(raw: Record<string, unknown> | undefined): EmbedConfig | undefined {
@@ -192,6 +223,7 @@ export async function loadConfig(): Promise<AppConfig> {
         ? { serverUrl: (parsed.cloud as Record<string, unknown>).server_url as string }
         : undefined,
       embed: parseEmbedConfig(parsed.embed as Record<string, unknown> | undefined),
+      chat: parseChatConfig(parsed.chat as Record<string, unknown> | undefined),
     };
   } catch {
     return getDefaultConfig();
@@ -216,6 +248,7 @@ export async function saveConfig(config: AppConfig): Promise<void> {
     },
     ...(config.cloud ? { cloud: { server_url: config.cloud.serverUrl } } : {}),
     ...(config.embed ? { embed: serializeEmbedConfig(config.embed) } : {}),
+    ...(config.chat ? { chat: serializeChatConfig(config.chat) } : {}),
   });
   await fs.writeFile(getConfigPath(), raw, 'utf-8');
 }

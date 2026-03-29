@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { settingsOpen, showToast } from '../lib/stores';
+  import { activeTab, showToast } from '../lib/stores';
   import { nomnom } from '../lib/nomnom';
   import EmbedForm from './settings/EmbedForm.svelte';
-  import type { EmbedConfigValue } from '../lib/types';
+  import type { EmbedConfigValue, ChatConfigValue } from '../lib/types';
   import ChatModelForm from './settings/ChatModelForm.svelte';
   import WatchFoldersForm from './settings/WatchFoldersForm.svelte';
 
@@ -12,6 +12,7 @@
     watch: { paths: string[]; glob: string };
     model: { localEmbed: string; localChat: string };
     embed?: EmbedConfigValue;
+    chat?: ChatConfigValue;
     mcp: { port: number };
   };
 
@@ -25,7 +26,7 @@
 
   // Form state
   let embedValue: EmbedConfigValue = { provider: 'local', model: '' };
-  let chatModel = '';
+  let chatValue: ChatConfigValue = { provider: 'local', model: '' };
   let watchPaths: string[] = [];
   let mcpPort = 23847;
 
@@ -41,7 +42,7 @@
 
       // Populate form from config
       embedValue = cfg.embed ?? { provider: 'local', model: cfg.model.localEmbed };
-      chatModel = cfg.model.localChat ?? '';
+      chatValue = cfg.chat ?? { provider: 'local', model: cfg.model.localChat ?? '' };
       watchPaths = [...cfg.watch.paths];
       mcpPort = cfg.mcp.port;
     } finally {
@@ -49,167 +50,106 @@
     }
   });
 
-  function close() {
-    settingsOpen.set(false);
-  }
-
   async function save() {
     if (!appConfig) return;
     saving = true;
     try {
       const updates: Partial<AppConfig> = {
         embed: embedValue,
+        chat: chatValue,
         model: {
           localEmbed: embedValue.provider === 'local' ? embedValue.model : appConfig.model.localEmbed,
-          localChat: chatModel,
+          localChat: chatValue.provider === 'local' ? chatValue.model : appConfig.model.localChat,
         },
         watch: { ...appConfig.watch, paths: watchPaths },
         mcp: { port: mcpPort },
       };
+      const embedChanged =
+        embedValue.provider !== (appConfig.embed?.provider ?? 'local') ||
+        embedValue.model !== (appConfig.embed?.model ?? appConfig.model.localEmbed);
+
       const result = await nomnom.configSave(updates);
-      if (result.restartRequired) {
-        showToast('Settings saved — restart to apply embedding/model changes', 4000);
+      if (embedChanged) {
+        showToast('Settings saved — downloading new model and re-indexing all documents. This may take a while.', 6000);
+      } else if (result.restartRequired) {
+        showToast('Settings saved — restart to apply changes', 4000);
       } else {
         showToast('Settings saved');
       }
-      settingsOpen.set(false);
     } catch (e: unknown) {
       showToast(`Save failed: ${e instanceof Error ? e.message : String(e)}`, 4000);
     } finally {
       saving = false;
     }
   }
-
-  function onKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') close();
-  }
 </script>
 
-<svelte:window onkeydown={onKeydown} />
+<div class="settings-panel">
 
-<div class="settings-overlay" role="dialog" aria-modal="true" aria-label="Settings">
-  <div class="settings-container">
+  {#if loading}
+    <div class="loading">
+      <div class="spinner"></div>
+      <span>Loading...</span>
+    </div>
+  {:else}
+    <div class="settings-body">
 
-    <div class="settings-header">
-      <h2 class="settings-title">Settings</h2>
-      <button class="close-btn" onclick={close} title="Close">
-        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-          <path d="M1 1l11 11M12 1L1 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-        </svg>
-      </button>
+      <section class="section">
+        <h3 class="section-title">Embedding</h3>
+        <p class="section-desc">Creates searchable representations of your documents.</p>
+        <EmbedForm bind:value={embedValue} catalog={embedCatalog} />
+      </section>
+
+      <div class="divider"></div>
+
+      <section class="section">
+        <h3 class="section-title">Chat Model</h3>
+        <p class="section-desc">For Q&A with your documents in the Chat tab.</p>
+        <ChatModelForm bind:value={chatValue} catalog={chatCatalog} />
+      </section>
+
+      <div class="divider"></div>
+
+      <section class="section">
+        <h3 class="section-title">Watched Folders</h3>
+        <p class="section-desc">NomNomDrive indexes documents in these folders.</p>
+        <WatchFoldersForm bind:paths={watchPaths} />
+      </section>
+
+      <div class="divider"></div>
+
+      <section class="section">
+        <h3 class="section-title">Advanced</h3>
+        <div class="field-row">
+          <label class="field-label" for="mcp-port">MCP Server Port</label>
+          <input
+            id="mcp-port"
+            class="port-input"
+            type="number"
+            bind:value={mcpPort}
+            min="1024"
+            max="65535"
+          />
+        </div>
+      </section>
+
     </div>
 
-    {#if loading}
-      <div class="loading">
-        <div class="spinner"></div>
-        <span>Loading…</span>
-      </div>
-    {:else}
-      <div class="settings-body">
+    <div class="settings-footer">
+      <button class="btn primary" onclick={save} disabled={saving}>
+        {saving ? 'Saving...' : 'Save'}
+      </button>
+    </div>
+  {/if}
 
-        <section class="section">
-          <h3 class="section-title">Embedding</h3>
-          <p class="section-desc">Creates searchable representations of your documents.</p>
-          <EmbedForm bind:value={embedValue} catalog={embedCatalog} />
-        </section>
-
-        <div class="divider"></div>
-
-        <section class="section">
-          <h3 class="section-title">Chat Model</h3>
-          <p class="section-desc">Used for local Q&A with your documents.</p>
-          <ChatModelForm bind:value={chatModel} catalog={chatCatalog} allowSkip />
-        </section>
-
-        <div class="divider"></div>
-
-        <section class="section">
-          <h3 class="section-title">Watched Folders</h3>
-          <p class="section-desc">NomNomDrive indexes documents in these folders.</p>
-          <WatchFoldersForm bind:paths={watchPaths} />
-        </section>
-
-        <div class="divider"></div>
-
-        <section class="section">
-          <h3 class="section-title">Advanced</h3>
-          <div class="field-row">
-            <label class="field-label" for="mcp-port">MCP Server Port</label>
-            <input
-              id="mcp-port"
-              class="port-input"
-              type="number"
-              bind:value={mcpPort}
-              min="1024"
-              max="65535"
-            />
-          </div>
-        </section>
-
-      </div>
-
-      <div class="settings-footer">
-        <button class="btn secondary" onclick={close} disabled={saving}>Cancel</button>
-        <button class="btn primary" onclick={save} disabled={saving}>
-          {saving ? 'Saving…' : 'Save'}
-        </button>
-      </div>
-    {/if}
-
-  </div>
 </div>
 
 <style>
-  .settings-overlay {
-    position: fixed;
-    inset: 0;
-    background: var(--bg);
-    z-index: 900;
-    display: flex;
-    flex-direction: column;
-    border-radius: 8px;
-    overflow: hidden;
-  }
-
-  .settings-container {
+  .settings-panel {
     display: flex;
     flex-direction: column;
     height: 100%;
     overflow: hidden;
-  }
-
-  .settings-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 18px 12px;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-
-  .settings-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text);
-    margin: 0;
-  }
-
-  .close-btn {
-    background: none;
-    border: none;
-    padding: 4px;
-    cursor: pointer;
-    color: var(--text-dim);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 4px;
-    transition: color var(--transition), background var(--transition);
-  }
-
-  .close-btn:hover {
-    color: var(--text);
-    background: var(--bg3);
   }
 
   .loading {
@@ -325,14 +265,5 @@
 
   .btn.primary:not(:disabled):hover {
     background: var(--accent-hover);
-  }
-
-  .btn.secondary {
-    background: var(--bg3);
-    color: var(--text);
-  }
-
-  .btn.secondary:not(:disabled):hover {
-    background: var(--border);
   }
 </style>

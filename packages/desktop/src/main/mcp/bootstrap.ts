@@ -7,6 +7,7 @@ import type { Store } from '../store';
 import type { IEmbedder } from '../embedder';
 import { registerSearchTool } from './tools/search.tool';
 import { registerFoldersTool } from './tools/folders.tool';
+import { registerFilesTool } from './tools/files.tool';
 import { registerDocumentTool } from './tools/document.tool';
 
 function buildMcpServer(store: Store, embedder: IEmbedder): McpServer {
@@ -17,6 +18,7 @@ function buildMcpServer(store: Store, embedder: IEmbedder): McpServer {
 
   registerSearchTool(server, store, embedder);
   registerFoldersTool(server, store);
+  registerFilesTool(server, store);
   registerDocumentTool(server, store);
 
   return server;

@@ -33,21 +33,9 @@ export const EMBED_MODELS: ModelOption[] = [
 
 export const CHAT_MODELS: ModelOption[] = [
   {
-    id: DEFAULT_CHAT_MODEL,
-    label: 'Qwen3-0.6B',
-    size: '~500 MB',
+    id: 'hf:unsloth/Qwen3-8B-GGUF',
+    label: 'Qwen3-8B',
+    size: '~5 GB',
     recommended: true,
-  },
-  {
-    id: 'hf:unsloth/Qwen3-1.7B-GGUF',
-    label: 'Qwen3-1.7B',
-    size: '~1.2 GB',
-    recommended: false,
-  },
-  {
-    id: 'hf:unsloth/Qwen3-4B-GGUF',
-    label: 'Qwen3-4B',
-    size: '~2.5 GB',
-    recommended: false,
   },
 ];

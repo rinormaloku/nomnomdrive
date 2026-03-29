@@ -1,10 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { nomnom } from '../lib/nomnom';
-  import { setupStatus, setupProgress } from '../lib/stores';
+  import { setupStatus, setupProgress, activeTab } from '../lib/stores';
   import type { ModelOption, SetupCatalog } from '../lib/types';
   import EmbedForm from './settings/EmbedForm.svelte';
-  import type { EmbedConfigValue } from '../lib/types';
+  import type { EmbedConfigValue, ChatConfigValue } from '../lib/types';
   import ChatModelForm from './settings/ChatModelForm.svelte';
 
   type Step = 'loading' | 'welcome' | 'folder' | 'embed' | 'chat' | 'downloading' | 'done' | 'error';
@@ -15,7 +15,7 @@
   // Form state
   let watchPath = '';
   let embedValue: EmbedConfigValue = { provider: 'local', model: '' };
-  let chatModel = '';
+  let chatValue: ChatConfigValue = { provider: 'local', model: '' };
   let mcpPort = 23847;
 
   // Download state
@@ -26,7 +26,7 @@
       catalog = await nomnom.setupGetCatalog();
       watchPath = catalog.defaults.watchPath;
       embedValue = { provider: 'local', model: catalog.defaults.embedModelId };
-      chatModel = catalog.defaults.chatModelId;
+      chatValue = { provider: 'local', model: catalog.defaults.chatModelId };
       mcpPort = catalog.defaults.mcpPort;
 
       // Check if we need full setup or just model downloads
@@ -57,18 +57,22 @@
     downloadError = '';
     const isLocal = embedValue.provider === 'local';
     const embedModelId = isLocal ? embedValue.model : '';
+    const chatModelId = chatValue.provider === 'local' ? chatValue.model : '';
 
     try {
       const result = await nomnom.setupStart({
         watchPath,
         embedModelId,
         embedConfig: embedValue,
-        chatModelId: chatModel,
+        chatModelId,
+        chatConfig: chatValue,
         mcpPort,
       } as Parameters<typeof nomnom.setupStart>[0]);
 
       if (result.success) {
         step = 'done';
+      } else if (result.error === 'cancelled') {
+        step = 'embed';
       } else {
         downloadError = result.error ?? 'Setup failed';
         step = 'error';
@@ -79,9 +83,18 @@
     }
   }
 
+  async function cancelDownload() {
+    await nomnom.setupCancel();
+  }
+
   function retry() {
     step = 'downloading';
     startDownload();
+  }
+
+  function goToSettings() {
+    setupStatus.set({ needsSetup: false, needsModelDownload: false, checked: true });
+    activeTab.set('settings');
   }
 
   function finish() {
@@ -153,12 +166,12 @@
         <h3 class="setup-step-title">Chat Model</h3>
         <p class="setup-step-desc">For local Q&A with your documents. You can skip this if you only need MCP search.</p>
         {#if catalog}
-          <ChatModelForm bind:value={chatModel} catalog={catalog.chatModels} allowSkip />
+          <ChatModelForm bind:value={chatValue} catalog={catalog.chatModels} />
         {/if}
         <div class="setup-nav">
           <button class="setup-btn secondary" onclick={() => step = 'embed'}>Back</button>
           <button class="setup-btn primary" onclick={nextFromChat}>
-            {embedValue.provider === 'local' ? 'Download & Finish' : 'Finish'}
+            {embedValue.provider === 'local' || (chatValue.provider === 'local' && chatValue.model) ? 'Download & Finish' : 'Finish'}
           </button>
         </div>
       </div>
@@ -178,6 +191,7 @@
           {/if}
         </p>
         <p class="setup-subtitle">This may take a few minutes on first run.</p>
+        <button class="setup-btn secondary" onclick={cancelDownload}>Cancel</button>
       </div>
 
     {:else if step === 'done'}
@@ -195,7 +209,10 @@
         <div class="setup-error-icon">!</div>
         <h3 class="setup-title">Setup Error</h3>
         <p class="setup-error-text">{downloadError}</p>
-        <button class="setup-btn primary" onclick={retry}>Retry</button>
+        <div class="setup-error-actions">
+          <button class="setup-btn secondary" onclick={goToSettings}>Change Model</button>
+          <button class="setup-btn primary" onclick={retry}>Retry</button>
+        </div>
       </div>
     {/if}
 
@@ -371,6 +388,12 @@
     color: var(--red);
     word-break: break-word;
     margin: 0;
+  }
+
+  .setup-error-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 4px;
   }
 
   .setup-spinner {

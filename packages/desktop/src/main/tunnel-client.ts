@@ -5,9 +5,10 @@ import type { TunnelRequest, TunnelToolCall, TunnelToolResponse, TunnelPong } fr
 import {
   executeSearchDocuments,
   executeListFolders,
+  executeListFiles,
   executeGetDocument,
 } from './mcp/tools/handlers';
-import type { SearchDocumentsInput, GetDocumentInput } from '@nomnomdrive/shared';
+import type { SearchDocumentsInput, GetDocumentInput, ListFilesInput } from '@nomnomdrive/shared';
 
 const MIN_BACKOFF_MS = 1_000;
 const MAX_BACKOFF_MS = 30_000;
@@ -116,6 +117,12 @@ export class TunnelClient {
           break;
         case 'list_folders':
           response.mcpResult = await executeListFolders(this.store);
+          break;
+        case 'list_files':
+          response.mcpResult = await executeListFiles(
+            this.store,
+            msg.args as ListFilesInput,
+          );
           break;
         case 'get_document':
           response.mcpResult = await executeGetDocument(

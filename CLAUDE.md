@@ -42,6 +42,26 @@ pnpm lint                 # eslint on all packages/*/src
 cd packages/desktop && pnpm dist
 ```
 
+## Code Style
+
+Prettier enforced: semi, singleQuote, trailingComma `all`, printWidth 100, tabWidth 2. Config in `.prettierrc`.
+
+## Native Modules
+
+`better-sqlite3` and `sqlite-vec` are native C++ addons rebuilt for the Electron ABI via `postinstall` (`electron-builder install-app-deps`). If you switch Node or Electron versions, run `pnpm rebuild` in the desktop package. The `predist` script replaces pnpm workspace symlinks with file copies before `electron-builder` runs — do not skip it.
+
+## Cloud Local Dev
+
+`pnpm dev:cloud` reads `.env` from the repo root via `dotenv-cli`. Required vars: `DATABASE_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `JWT_SECRET`, `SERVER_URL`. See `docker-compose.yml` for the default PostgreSQL connection string.
+
+## Build Order
+
+Shared must build before desktop or cloud — every `dev:*` and `build` script handles this automatically, but if you run package-level commands directly (e.g., `cd packages/desktop && pnpm build`), build shared first or you'll get stale types.
+
+## Testing
+
+No test framework is set up yet. There are no tests across any package.
+
 ## Key Architecture Points
 
 **IPC (Electron main ↔ renderer):** All renderer→main calls go through `preload.ts` (contextBridge) → `nomnom.ts` wrapper in the renderer. Push events from main use `mainWindow.webContents.send(channel)` and `ipcRenderer.on(channel, cb)`. `onCloudStatusChanged` is the pattern for reactive cloud state — the main process emits `cloud:status-changed` after every login/logout; `App.svelte` subscribes and refreshes the `cloudStatus` Svelte store.

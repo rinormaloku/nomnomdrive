@@ -10,13 +10,13 @@ import type { AddressInfo } from 'net';
 import { spawn } from 'child_process';
 import { loadConfig, saveConfig } from './config';
 import { Store } from './store';
-import { createEmbedder, type IEmbedder } from './embedder';
+import { createEmbedder, EmbedderProxy, type IEmbedder } from './embedder';
 import { Watcher } from './watcher';
 import { Indexer } from './indexer';
 import { IpcServer } from './ipc-server';
 import { bootstrapMcpServer } from './mcp/bootstrap';
 import { patchMcpClientByName } from './mcp-register';
-import { ChatEngine } from './chat-engine';
+import { ChatEngineProxy, createChatEngine } from './chat-engine';
 import { TunnelClient } from './tunnel-client';
 import type { IndexingProgress } from '@nomnomdrive/shared';
 import {
@@ -29,8 +29,12 @@ import {
   getDefaultSetupOptions,
   EMBED_MODELS,
   CHAT_MODELS,
+  listHuggingFaceGgufFiles,
+  getEmbedConfig,
+  getChatConfig,
   type SetupOptions,
   type AppConfig,
+  type ChatConfig,
 } from '@nomnomdrive/shared';
 
 process.on('uncaughtException', (error) => {
@@ -46,8 +50,10 @@ if (process.platform === 'linux') {
   app.commandLine.appendSwitch('no-sandbox');
 }
 
+// Only disable HW acceleration for the Electron renderer (chromium compositing).
+// Do NOT pass --disable-gpu — it also disables Vulkan device enumeration,
+// which node-llama-cpp needs to detect VRAM and offload layers to the GPU.
 app.disableHardwareAcceleration();
-app.commandLine.appendSwitch('disable-gpu');
 
 const emitter = new EventEmitter();
 let tray: Tray | null = null;
@@ -153,6 +159,10 @@ ipcMain.handle('setup:check', async () => {
   return checkSetupStatus();
 });
 
+ipcMain.handle('model:list-gguf', (_event, repoId: string) =>
+  listHuggingFaceGgufFiles(repoId),
+);
+
 ipcMain.handle('setup:get-catalog', () => {
   const defaults = getDefaultSetupOptions();
   return {
@@ -162,7 +172,11 @@ ipcMain.handle('setup:get-catalog', () => {
   };
 });
 
-ipcMain.handle('setup:start', async (_event, options: SetupOptions & { embedConfig?: unknown }) => {
+let setupAbortController: AbortController | null = null;
+
+ipcMain.handle('setup:start', async (_event, options: SetupOptions & { embedConfig?: unknown; chatConfig?: unknown }) => {
+  setupAbortController = new AbortController();
+  const { signal } = setupAbortController;
   try {
     const status = await checkSetupStatus();
     const sendProgress = (progress: { phase: string; modelId: string; modelLabel: string; downloaded: number; total: number }) => {
@@ -175,10 +189,14 @@ ipcMain.handle('setup:start', async (_event, options: SetupOptions & { embedConf
 
     if (status.needsSetup || !status.existingConfig) {
       // Full setup — save config + download models
-      await runSetup({ ...options, embedConfig: options.embedConfig as import('@nomnomdrive/shared').EmbedConfig | undefined }, sendProgress, sendPhaseStart);
+      await runSetup({
+        ...options,
+        embedConfig: options.embedConfig as import('@nomnomdrive/shared').EmbedConfig | undefined,
+        chatConfig: options.chatConfig as import('@nomnomdrive/shared').ChatConfig | undefined,
+      }, sendProgress, sendPhaseStart, signal);
     } else if (status.needsModelDownload && status.existingConfig) {
       // Config exists but models are missing — just download
-      await downloadMissingModels(status.existingConfig, sendProgress, sendPhaseStart);
+      await downloadMissingModels(status.existingConfig, sendProgress, sendPhaseStart, signal);
     }
 
     // Models are now on disk — initialize embedder and start watcher
@@ -190,10 +208,19 @@ ipcMain.handle('setup:start', async (_event, options: SetupOptions & { embedConf
     mainWindow?.webContents.send('setup:complete');
     return { success: true };
   } catch (err: unknown) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      return { success: false, error: 'cancelled' };
+    }
     const message = err instanceof Error ? err.message : String(err);
     mainWindow?.webContents.send('setup:error', { error: message });
     return { success: false, error: message };
+  } finally {
+    setupAbortController = null;
   }
+});
+
+ipcMain.handle('setup:cancel', () => {
+  setupAbortController?.abort();
 });
 
 // ── Cloud IPC handlers (no store/config dependency — register early) ──────────
@@ -256,7 +283,7 @@ app.whenReady().then(async () => {
   }
 
   // Create indexer first (watcher needs it)
-  const embedder = createEmbedder(config);
+  const embedder = new EmbedderProxy(createEmbedder(config));
   const indexer = new Indexer(store, embedder);
   indexer.setEmitter(emitter);
 
@@ -291,6 +318,8 @@ app.whenReady().then(async () => {
       mainWindow?.webContents.send('model:ready', {});
     }).catch((err) => {
       console.error('[Embedder] Failed to load model:', err);
+      const message = err instanceof Error ? err.message : String(err);
+      mainWindow?.webContents.send('model:error', { error: message });
     });
 
     // Start watching + scan existing files
@@ -444,7 +473,7 @@ app.whenReady().then(async () => {
   });
 
   // ── Chat engine (lazy-loaded) ──
-  const chatEngine = new ChatEngine(config, embedder, store);
+  const chatEngine = new ChatEngineProxy(createChatEngine(config, embedder, store));
 
   ipcMain.handle('chat:init', async () => {
     await chatEngine.initialize((downloaded, total) => {
@@ -460,9 +489,15 @@ app.whenReady().then(async () => {
   });
 
   ipcMain.handle('chat:send', async (_event, message: string) => {
-    const response = await chatEngine.chat(message, (chunk) => {
-      mainWindow?.webContents.send('chat:chunk', chunk);
-    });
+    const response = await chatEngine.chat(
+      message,
+      (chunk) => {
+        mainWindow?.webContents.send('chat:chunk', chunk);
+      },
+      (toolCall) => {
+        mainWindow?.webContents.send('chat:tool-call', toolCall);
+      },
+    );
     return response;
   });
 
@@ -480,6 +515,7 @@ app.whenReady().then(async () => {
       watch: updates.watch ? { ...config.watch, ...updates.watch } : config.watch,
       model: updates.model ? { ...config.model, ...updates.model } : config.model,
       mcp: updates.mcp ? { ...config.mcp, ...updates.mcp } : config.mcp,
+      ...(updates.chat !== undefined ? { chat: updates.chat as ChatConfig | undefined } : {}),
     };
     await saveConfig(newConfig);
     Object.assign(config, newConfig);
@@ -499,24 +535,111 @@ app.whenReady().then(async () => {
       }
     }
 
-    // If the chat model changed, dispose the engine so the next chat:init
-    // re-initializes with the new model instead of returning a stale/failed promise.
-    if (updates.model?.localChat !== undefined) {
-      await chatEngine.dispose();
+    // Hot-reload chat engine: swap to new engine when chat config or local model changes
+    const chatChanged = updates.chat !== undefined || updates.model?.localChat !== undefined;
+    if (chatChanged) {
+      const newInner = createChatEngine(config, embedder, store);
+      const chatCfg = getChatConfig(config);
+      if (chatCfg.provider !== 'local') {
+        // Remote: initialize is instant, then swap
+        await newInner.initialize();
+        await chatEngine.swap(newInner);
+        console.log('[Settings] Chat engine hot-reloaded (remote)');
+      } else if (config.model.localChat) {
+        // Local: swap first (disposes old), then initialize in background
+        await chatEngine.swap(newInner);
+        newInner.initialize((downloaded, total) => {
+          mainWindow?.webContents.send('setup:progress', {
+            phase: 'chat',
+            modelId: config.model.localChat,
+            modelLabel: 'Chat model',
+            downloaded,
+            total,
+          });
+        }).then(() => {
+          console.log('[Settings] Chat model hot-reloaded (local)');
+        }).catch((err) => {
+          console.error('[Settings] Failed to hot-reload chat model:', err);
+        });
+      } else {
+        await chatEngine.swap(newInner);
+      }
     }
 
-    const restartRequired = updates.embed !== undefined || !!updates.model?.localEmbed || !!updates.model?.localChat;
+    // Hot-reload embed model: dispose old, create new, swap in-place
+    const embedChanged = updates.embed !== undefined || !!updates.model?.localEmbed;
+    if (embedChanged) {
+      // Run in background so the IPC call returns immediately (un-sticks "Saving…")
+      (async () => {
+        try {
+          // Wait for any in-flight indexing to finish
+          while (indexer.isProcessing()) {
+            await new Promise((r) => setTimeout(r, 50));
+          }
+
+          const newInner = createEmbedder(config);
+          await newInner.initialize((downloaded, total) => {
+            mainWindow?.webContents.send('setup:progress', {
+              phase: 'embed',
+              modelId: 'embed',
+              modelLabel: 'Embedding model',
+              downloaded,
+              total,
+            });
+          });
+
+          // Check if dimensions changed — reset vector store if so
+          const storedDims = store.getStoredDims();
+          const newDims = newInner.getDims();
+          if (storedDims !== null && storedDims !== newDims) {
+            store.resetForNewDims(newDims);
+          }
+
+          await embedder.swap(newInner);
+          console.log('[Settings] Embed model hot-reloaded');
+          mainWindow?.webContents.send('model:ready', {});
+
+          // Re-index all files with the new embedding model
+          indexer.scanAll(config.watch.paths).catch(console.error);
+        } catch (err) {
+          console.error('[Settings] Failed to hot-reload embed model:', err);
+        }
+      })();
+    }
+
     mainWindow?.webContents.send('config', {
       dropFolder: config.watch.paths[0],
       mcpPort: config.mcp.port,
       chatConfigured: chatEngine.isConfigured(),
     });
-    return { restartRequired };
+    return { restartRequired: false };
   });
 
   ipcMain.handle('open-folder-dialog', async () => {
     const result = await dialog.showOpenDialog(mainWindow!, { properties: ['openDirectory'] });
     return result.canceled ? null : result.filePaths[0];
+  });
+
+  ipcMain.handle('drop:copy-to-watch', async (_event, filePaths: string[]) => {
+    const dest = config.watch.paths[0];
+    if (!dest) return { success: false, error: 'No watch folder configured' };
+    const results: { path: string; error?: string }[] = [];
+    for (const src of filePaths) {
+      try {
+        const stat = await fs.promises.stat(src);
+        const name = path.basename(src);
+        const target = path.join(dest, name);
+        if (stat.isDirectory()) {
+          await fs.promises.cp(src, target, { recursive: true });
+        } else {
+          await fs.promises.copyFile(src, target);
+        }
+        results.push({ path: target });
+      } catch (err: unknown) {
+        results.push({ path: src, error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+    return { success: true, results };
   });
 
   // Start Unix socket IPC server for CLI

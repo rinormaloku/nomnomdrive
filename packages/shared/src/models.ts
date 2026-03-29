@@ -16,19 +16,37 @@ export type ProgressCallback = (downloaded: number, total: number) => void;
 export async function resolveModelPath(
   modelId: string,
   onProgress?: ProgressCallback,
+  signal?: AbortSignal,
 ): Promise<string> {
   if (modelId.startsWith('hf:')) {
-    return downloadHuggingFaceModel(modelId.slice(3), onProgress);
+    return downloadHuggingFaceModel(modelId.slice(3), onProgress, signal);
   }
   if (path.isAbsolute(modelId)) {
     return modelId;
   }
-  return path.join(getModelsDir(), modelId);
+  // Relative path — try the full relative path inside models dir first,
+  // then fall back to just the basename (flat layout from HF downloads).
+  const modelsDir = getModelsDir();
+  const full = path.join(modelsDir, modelId);
+  try {
+    await fs.access(full);
+    return full;
+  } catch {
+    const flat = path.join(modelsDir, path.basename(modelId));
+    try {
+      await fs.access(flat);
+      return flat;
+    } catch {
+      // Neither exists — return the full path so the caller gets a clear error
+      return full;
+    }
+  }
 }
 
 async function downloadHuggingFaceModel(
   hfPath: string,
   onProgress?: ProgressCallback,
+  signal?: AbortSignal,
 ): Promise<string> {
   // hfPath format: "org/repo-name/file.gguf"  or  "ggml-org/embeddinggemma-300M-Q8_0-GGUF"
   // We need to figure out the filename from the repo
@@ -60,26 +78,39 @@ async function downloadHuggingFaceModel(
   }
 
   const downloadUrl = `https://huggingface.co/${repoId}/resolve/main/${fileName}`;
-  await downloadFile(downloadUrl, localPath, onProgress);
+  await downloadFile(downloadUrl, localPath, onProgress, signal);
   return localPath;
 }
 
+export interface GgufFileInfo {
+  filename: string;
+  size: number;
+}
+
+/**
+ * List all GGUF files available in a HuggingFace repo.
+ */
+export async function listHuggingFaceGgufFiles(repoId: string): Promise<GgufFileInfo[]> {
+  const data = await fetchJson(`https://huggingface.co/api/models/${repoId}`);
+  const siblings = (data as { siblings?: Array<{ rfilename: string; size?: number }> }).siblings ?? [];
+  return siblings
+    .filter((s) => s.rfilename.endsWith('.gguf'))
+    .map((s) => ({ filename: s.rfilename, size: s.size ?? 0 }));
+}
+
 async function resolveHuggingFaceFilename(repoId: string): Promise<string> {
-  const apiUrl = `https://huggingface.co/api/models/${repoId}`;
-  const data = await fetchJson(apiUrl);
-  const siblings = (data as { siblings?: Array<{ rfilename: string }> }).siblings ?? [];
-  const ggufFiles = siblings.filter((s) => s.rfilename.endsWith('.gguf'));
+  const ggufFiles = await listHuggingFaceGgufFiles(repoId);
   if (ggufFiles.length === 0) throw new Error(`No GGUF file found in HuggingFace repo: ${repoId}`);
-  if (ggufFiles.length === 1) return ggufFiles[0].rfilename;
+  if (ggufFiles.length === 1) return ggufFiles[0].filename;
 
   // Multiple GGUF files — pick the best default quant.
   // Preference order: Q4_K_M > Q4_K_S > Q5_K_M > Q5_K_S > Q8_0 > Q6_K > first file
   const quantPriority = ['Q4_K_M', 'Q4_K_S', 'Q5_K_M', 'Q5_K_S', 'Q8_0', 'Q6_K'];
   for (const quant of quantPriority) {
-    const match = ggufFiles.find((s) => s.rfilename.includes(quant));
-    if (match) return match.rfilename;
+    const match = ggufFiles.find((s) => s.filename.includes(quant));
+    if (match) return match.filename;
   }
-  return ggufFiles[0].rfilename;
+  return ggufFiles[0].filename;
 }
 
 function fetchJson(url: string): Promise<unknown> {
@@ -100,31 +131,56 @@ function fetchJson(url: string): Promise<unknown> {
   });
 }
 
-function downloadFile(url: string, dest: string, onProgress?: ProgressCallback): Promise<void> {
+function downloadFile(url: string, dest: string, onProgress?: ProgressCallback, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException('Download cancelled', 'AbortError'));
+      return;
+    }
+
     // Ensure parent dir exists (dest may contain subdirectories)
     require('fs').mkdirSync(path.dirname(dest), { recursive: true });
     const file = require('fs').createWriteStream(dest + '.tmp');
-    let downloaded = 0;
-    let total = 0;
+    let currentRes: import('http').IncomingMessage | null = null;
+
+    const cleanup = () => {
+      currentRes?.destroy();
+      file.destroy();
+      const fsSyncModule = require('fs') as typeof import('fs');
+      try { fsSyncModule.unlinkSync(dest + '.tmp'); } catch { /* already gone */ }
+    };
+
+    if (signal) {
+      signal.addEventListener('abort', () => {
+        cleanup();
+        reject(new DOMException('Download cancelled', 'AbortError'));
+      }, { once: true });
+    }
 
     const followRedirects = (redirectUrl: string) => {
       https
         .get(redirectUrl, { headers: { 'User-Agent': 'nomnomdrive/0.1' } }, (res) => {
+          currentRes = res;
+
+          if (signal?.aborted) return;
+
           if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
             followRedirects(res.headers.location);
             return;
           }
 
-          total = parseInt(res.headers['content-length'] ?? '0', 10);
+          let downloaded = 0;
+          const total = parseInt(res.headers['content-length'] ?? '0', 10);
 
           res.on('data', (chunk: Buffer) => {
+            if (signal?.aborted) return;
             downloaded += chunk.length;
             file.write(chunk);
             onProgress?.(downloaded, total);
           });
 
           res.on('end', () => {
+            if (signal?.aborted) return;
             // Wait for the write stream to fully flush before renaming
             file.end(() => {
               const fsSyncModule = require('fs') as typeof import('fs');
@@ -168,13 +224,13 @@ function downloadFile(url: string, dest: string, onProgress?: ProgressCallback):
  */
 export async function modelExists(modelId: string): Promise<boolean> {
   try {
+    const modelsDir = getModelsDir();
+
     if (modelId.startsWith('hf:')) {
       const hfPath = modelId.slice(3);
       const parts = hfPath.split('/');
       const repoId = parts.slice(0, 2).join('/');
       const explicitFile = parts[2];
-
-      const modelsDir = getModelsDir();
 
       if (explicitFile) {
         const localPath = path.join(modelsDir, explicitFile);
@@ -182,14 +238,29 @@ export async function modelExists(modelId: string): Promise<boolean> {
         return true;
       }
 
-      // Check if any GGUF file exists for this repo
+      // Check if any GGUF file exists for this repo.
+      // Repo names typically end with "-GGUF" (e.g. "Qwen3-4B-GGUF") while
+      // downloaded files use a quantisation suffix (e.g. "Qwen3-4B-Q5_K_M.gguf").
+      // Strip the trailing "-GGUF"/"-gguf" so the prefix matches actual filenames.
       const files = await fs.readdir(modelsDir).catch(() => [] as string[]);
       const repoName = repoId.split('/')[1];
-      return files.some((f) => f.includes(repoName) && f.endsWith('.gguf'));
+      const prefix = repoName.replace(/-[Gg][Gg][Uu][Ff]$/, '');
+      return files.some((f) => f.endsWith('.gguf') && (f.includes(repoName) || f.startsWith(prefix)));
     }
 
-    await fs.access(modelId);
-    return true;
+    // Non-HF path: check as-is first, then resolve relative paths inside modelsDir
+    if (path.isAbsolute(modelId)) {
+      await fs.access(modelId);
+      return true;
+    }
+    // Try full relative path inside models dir, then just the basename
+    try {
+      await fs.access(path.join(modelsDir, modelId));
+      return true;
+    } catch {
+      await fs.access(path.join(modelsDir, path.basename(modelId)));
+      return true;
+    }
   } catch {
     return false;
   }

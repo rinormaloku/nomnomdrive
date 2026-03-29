@@ -81,3 +81,7 @@ export type EmbedConfigValue =
   | { provider: 'local'; model: string }
   | { provider: 'openai'; model: string; apiKey: string; baseUrl?: string }
   | { provider: 'gemini'; model: string; apiKey: string };
+
+export type ChatConfigValue =
+  | { provider: 'local'; model: string }
+  | { provider: 'openai'; model: string; apiKey: string; baseUrl?: string };
