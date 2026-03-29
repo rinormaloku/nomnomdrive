@@ -67,24 +67,25 @@ export async function executeListFiles(
 
   let filtered = allDocs;
 
-  // Filter by folder
-  if (args.folder) {
-    const folderLower = args.folder.toLowerCase();
+  // Filter by folder (skip empty strings)
+  if (args.folder && args.folder.trim()) {
+    const folderLower = args.folder.trim().toLowerCase();
     filtered = filtered.filter((d) => {
       const folderPath = folderPathMap.get(d.folderId);
       return folderPath?.toLowerCase().includes(folderLower);
     });
   }
 
-  // Filter by file type
-  if (args.file_type) {
-    const ft = args.file_type.toLowerCase();
+  // Filter by file type (skip empty strings)
+  if (args.file_type && args.file_type.trim()) {
+    const ft = args.file_type.trim().toLowerCase();
     filtered = filtered.filter((d) => d.fileType.toLowerCase() === ft);
   }
 
-  // Filter by grep-like pattern (case-insensitive substring)
-  if (args.pattern) {
-    const pat = args.pattern.toLowerCase();
+  // Filter by pattern (case-insensitive substring match).
+  // Treat "*" or empty string as "match all" since models often pass "*" as a wildcard.
+  if (args.pattern && args.pattern.trim() && args.pattern.trim() !== '*') {
+    const pat = args.pattern.trim().toLowerCase();
     filtered = filtered.filter((d) => d.relativePath.toLowerCase().includes(pat));
   }
 

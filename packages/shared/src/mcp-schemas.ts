@@ -18,7 +18,7 @@ export const ListFilesSchema = z.object({
   pattern: z
     .string()
     .optional()
-    .describe('Grep-like pattern to filter filenames (case-insensitive substring match). Omit to list all files.'),
+    .describe('Substring to filter filenames (case-insensitive). Example: "report" matches "Q1-Report.pdf". Omit or pass "*" to list all files.'),
   folder: z
     .string()
     .optional()

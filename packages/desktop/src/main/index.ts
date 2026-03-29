@@ -100,6 +100,8 @@ let activeTunnelClient: TunnelClient | null = null;
 
 /** Set by whenReady(); called from setup:start after first-run setup completes. */
 let _startEmbedderAndWatcher: (() => Promise<void>) | null = null;
+/** Set by whenReady(); reloads config from disk into the in-memory config object. */
+let _reloadConfig: (() => Promise<void>) | null = null;
 
 // ─── Main window ──────────────────────────────────────────────────────────────
 
@@ -231,6 +233,8 @@ ipcMain.handle('setup:start', async (_event, options: SetupOptions & { embedConf
         embedConfig: options.embedConfig as import('@nomnomdrive/shared').EmbedConfig | undefined,
         chatConfig: options.chatConfig as import('@nomnomdrive/shared').ChatConfig | undefined,
       }, sendProgress, sendPhaseStart, signal);
+      // Refresh in-memory config so chat engine and other services see the new values
+      if (_reloadConfig) await _reloadConfig();
     } else if (status.needsModelDownload && status.existingConfig) {
       // Config exists but models are missing — just download
       await downloadMissingModels(status.existingConfig, sendProgress, sendPhaseStart, signal);
@@ -359,8 +363,8 @@ app.whenReady().then(async () => {
   // Enable auto-start at login
   app.setLoginItemSettings({ openAtLogin: true });
 
-  // Load config
-  const config = await loadConfig();
+  // Load config (may be replaced after first-run setup completes)
+  let config = await loadConfig();
 
   // Check whether first-run setup is still needed (no config.yaml or missing models).
   // If so, we defer embedder init and watcher start until setup:start completes,
@@ -447,6 +451,10 @@ app.whenReady().then(async () => {
 
   // Expose so the setup:start handler (registered at top-level) can trigger it
   _startEmbedderAndWatcher = startEmbedderAndWatcher;
+  _reloadConfig = async () => {
+    const fresh = await loadConfig();
+    Object.assign(config, fresh);
+  };
 
   if (!firstRunSetupNeeded) {
     // Normal startup: begin embedding and file watching immediately
