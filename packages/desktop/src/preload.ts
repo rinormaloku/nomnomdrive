@@ -51,6 +51,7 @@ contextBridge.exposeInMainWorld('nomnom', {
     chatModelId: string;
     chatConfig?: unknown;
     mcpPort: number;
+    gpuType?: string;
   }): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke('setup:start', options),
 

@@ -32,6 +32,7 @@ declare global {
         chatModelId: string;
         chatConfig?: unknown;
         mcpPort: number;
+        gpuType?: string;
       }) => Promise<{ success: boolean; error?: string }>;
       onSetupProgress: (cb: (progress: SetupProgressData) => void) => void;
       onSetupComplete: (cb: () => void) => void;
@@ -187,7 +188,7 @@ export const nomnom = {
   chatReset: () => window.nomnom.chatReset(),
   setupCheck: () => window.nomnom.setupCheck(),
   setupGetCatalog: () => window.nomnom.setupGetCatalog(),
-  setupStart: (options: { watchPath: string; embedModelId: string; embedConfig?: unknown; chatModelId: string; chatConfig?: unknown; mcpPort: number }) =>
+  setupStart: (options: { watchPath: string; embedModelId: string; embedConfig?: unknown; chatModelId: string; chatConfig?: unknown; mcpPort: number; gpuType?: string }) =>
     window.nomnom.setupStart(options),
   setupCancel: () => window.nomnom.setupCancel(),
   getCloudStatus: () => window.nomnom.getCloudStatus(),

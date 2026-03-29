@@ -1,6 +1,7 @@
 import { app, Tray, Menu, BrowserWindow, ipcMain, shell, nativeImage, nativeTheme, dialog } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import path from 'path';
+import os from 'os';
 import fs from 'fs';
 import { EventEmitter } from 'events';
 import { createServer } from 'http';
@@ -65,6 +66,31 @@ app.disableHardwareAcceleration();
 // Register ESM loader hook for GPU binaries BEFORE any getLlama() call.
 // This must happen early — before app.whenReady() triggers embedder init.
 registerGpuLoaderHook();
+
+// ── Model crash detection ─────────────────────────────────────────────────────
+// The CPU-only llama.cpp binary may trigger SIGILL on some CPUs (e.g. AMD with
+// AVX-512 but no AMX). Since SIGILL terminates the process instantly, we write a
+// marker file before model loading and delete it on success. If the marker is
+// still present on next launch, we skip model loading so the user can reach
+// Settings and install a GPU binary instead.
+const MODEL_CRASH_MARKER = path.join(os.homedir(), '.config', 'nomnomdrive', '.model-loading-crash');
+
+function isModelCrashDetected(): boolean {
+  return fs.existsSync(MODEL_CRASH_MARKER);
+}
+
+function writeModelCrashMarker(): void {
+  try {
+    fs.mkdirSync(path.dirname(MODEL_CRASH_MARKER), { recursive: true });
+    fs.writeFileSync(MODEL_CRASH_MARKER, Date.now().toString(), 'utf8');
+  } catch { /* best effort */ }
+}
+
+function clearModelCrashMarker(): void {
+  try {
+    fs.unlinkSync(MODEL_CRASH_MARKER);
+  } catch { /* already gone */ }
+}
 
 const emitter = new EventEmitter();
 let tray: Tray | null = null;
@@ -185,7 +211,7 @@ ipcMain.handle('setup:get-catalog', () => {
 
 let setupAbortController: AbortController | null = null;
 
-ipcMain.handle('setup:start', async (_event, options: SetupOptions & { embedConfig?: unknown; chatConfig?: unknown }) => {
+ipcMain.handle('setup:start', async (_event, options: SetupOptions & { embedConfig?: unknown; chatConfig?: unknown; gpuType?: string }) => {
   setupAbortController = new AbortController();
   const { signal } = setupAbortController;
   try {
@@ -208,6 +234,27 @@ ipcMain.handle('setup:start', async (_event, options: SetupOptions & { embedConf
     } else if (status.needsModelDownload && status.existingConfig) {
       // Config exists but models are missing — just download
       await downloadMissingModels(status.existingConfig, sendProgress, sendPhaseStart, signal);
+    }
+
+    // Download GPU binary BEFORE embedder init so the ESM loader hook can redirect
+    // node-llama-cpp imports to the GPU-accelerated binary.
+    if (options.gpuType && options.gpuType !== 'none') {
+      try {
+        await downloadGpuBinary(options.gpuType as 'vulkan' | 'cuda', (downloaded, total) => {
+          mainWindow?.webContents.send('setup:progress', {
+            phase: 'gpu',
+            modelId: options.gpuType,
+            modelLabel: `GPU acceleration (${options.gpuType})`,
+            downloaded,
+            total,
+          });
+        });
+        // Register the hook so embedder picks up the GPU binary
+        registerGpuLoaderHook();
+      } catch (gpuErr) {
+        // Non-fatal: log and continue with CPU fallback
+        console.warn('[Setup] GPU binary download failed (will use CPU):', gpuErr);
+      }
     }
 
     // Models are now on disk — initialize embedder and start watcher
@@ -277,6 +324,8 @@ ipcMain.handle('gpu:install', async (_event, gpuType: string) => {
     });
     // Re-register the hook so the newly downloaded binary is discoverable
     registerGpuLoaderHook();
+    // Clear the crash marker so model loading is attempted on next restart
+    clearModelCrashMarker();
     return { success: true };
   } catch (err: unknown) {
     return { success: false, error: err instanceof Error ? err.message : String(err) };
@@ -340,6 +389,24 @@ app.whenReady().then(async () => {
   // Helper that starts the embedder and watcher — called immediately on normal
   // startup, or deferred until after first-run setup completes.
   const startEmbedderAndWatcher = async () => {
+    // If the previous launch crashed during model loading (SIGILL on incompatible
+    // CPU binary), skip model init so the user can reach Settings and install a
+    // GPU binary. The marker is also cleared when GPU is installed from Settings.
+    if (isModelCrashDetected()) {
+      console.warn('[Main] Previous model load crashed — skipping model init.');
+      console.warn('[Main] Open Settings → GPU Acceleration to install a GPU binary, then restart.');
+      clearModelCrashMarker();
+      mainWindow?.webContents.send('model:error', {
+        error: 'Model loading crashed on previous launch. Please install GPU acceleration in Settings, then restart.',
+      });
+      // Still start watcher so new files are queued (they'll be indexed once the model works)
+      await watcher.start();
+      return;
+    }
+
+    // Write crash marker before model init — cleared on success
+    writeModelCrashMarker();
+
     // Start embedder (async — tray is usable while model loads)
     embedder.initialize((downloaded, total) => {
       mainWindow?.webContents.send('setup:progress', {
@@ -350,6 +417,9 @@ app.whenReady().then(async () => {
         total,
       });
     }).then(() => {
+      // Model loaded successfully — clear the crash marker
+      clearModelCrashMarker();
+
       // Validate embedding dims against what the DB was built with.
       // If the model changed (e.g. 768 → 1024), reset the vector index so
       // re-indexing starts fresh rather than failing on every insert.
@@ -364,6 +434,7 @@ app.whenReady().then(async () => {
       console.log('[Embedder] Model ready');
       mainWindow?.webContents.send('model:ready', {});
     }).catch((err) => {
+      clearModelCrashMarker();
       console.error('[Embedder] Failed to load model:', err);
       const message = err instanceof Error ? err.message : String(err);
       mainWindow?.webContents.send('model:error', { error: message });

@@ -91,6 +91,7 @@
         chatModelId,
         chatConfig: chatValue,
         mcpPort,
+        gpuType: selectedGpu !== 'none' ? selectedGpu : undefined,
       } as Parameters<typeof nomnom.setupStart>[0]);
 
       if (!result.success) {
@@ -101,15 +102,6 @@
           step = 'error';
         }
         return;
-      }
-
-      // Download GPU binary if user selected one
-      if (selectedGpu !== 'none') {
-        const gpuResult = await nomnom.gpuInstall(selectedGpu);
-        if (!gpuResult.success) {
-          // Non-fatal: warn but continue (CPU fallback still works)
-          console.warn('GPU binary download failed:', gpuResult.error);
-        }
       }
 
       step = 'done';
