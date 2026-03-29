@@ -58,6 +58,12 @@ declare global {
       onUpdateAvailable: (cb: (info: { version: string }) => void) => void;
       onUpdateDownloaded: (cb: () => void) => void;
       installUpdate: () => void;
+      // GPU acceleration
+      gpuDetect: () => Promise<Array<{ type: string; label: string; size: string }>>;
+      gpuStatus: () => Promise<{ installed: string | null }>;
+      gpuActiveBackend: () => Promise<{ backend: string | null }>;
+      gpuInstall: (gpuType: string) => Promise<{ success: boolean; error?: string }>;
+      gpuRemove: (gpuType: string) => Promise<{ success: boolean; error?: string }>;
       // Models
       listGgufFiles: (repoId: string) => Promise<Array<{ filename: string; size: number }>>;
       // Settings
@@ -188,6 +194,11 @@ export const nomnom = {
   cloudLogin: (serverUrl?: string) => window.nomnom.cloudLogin(serverUrl),
   cloudLogout: () => window.nomnom.cloudLogout(),
   onCloudStatusChanged: (cb: () => void) => window.nomnom.onCloudStatusChanged(cb),
+  gpuDetect: () => window.nomnom.gpuDetect(),
+  gpuStatus: () => window.nomnom.gpuStatus(),
+  gpuActiveBackend: () => window.nomnom.gpuActiveBackend(),
+  gpuInstall: (gpuType: string) => window.nomnom.gpuInstall(gpuType),
+  gpuRemove: (gpuType: string) => window.nomnom.gpuRemove(gpuType),
   listGgufFiles: (repoId: string) => window.nomnom.listGgufFiles(repoId),
   configGet: () => window.nomnom.configGet(),
   configSave: (updates: unknown) => window.nomnom.configSave(updates),

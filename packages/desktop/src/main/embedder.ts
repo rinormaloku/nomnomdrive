@@ -9,6 +9,8 @@ export interface IEmbedder {
   getEmbeddings(texts: string[]): Promise<number[][]>;
   isReady(): boolean;
   getDims(): number;
+  /** Returns the active GPU backend ('metal', 'cuda', 'vulkan') or false for CPU. */
+  getGpuBackend(): string | false;
   dispose(): Promise<void>;
 }
 
@@ -26,6 +28,7 @@ type LlamaModel = {
 type Llama = {
   loadModel(opts: { modelPath: string }): Promise<LlamaModel>;
   dispose(): Promise<void>;
+  gpu: string | false;
 };
 
 export class LocalEmbedder implements IEmbedder {
@@ -34,6 +37,7 @@ export class LocalEmbedder implements IEmbedder {
   private context: LlamaContext | null = null;
   private modelPath: string | null = null;
   private dims: number | null = null;
+  private gpuBackend: string | false = false;
   private readonly config: AppConfig;
   /** Resolves when the model is ready; null if initialize() has not been called. */
   private readyPromise: Promise<void> | null = null;
@@ -51,6 +55,8 @@ export class LocalEmbedder implements IEmbedder {
       // Use native runtime import so CommonJS transpilation does not rewrite to require()
       const { getLlama } = await (0, eval)('import("node-llama-cpp")');
       this.llama = (await getLlama()) as unknown as Llama;
+      this.gpuBackend = this.llama.gpu;
+      console.log(`[Embedder] GPU backend: ${this.gpuBackend || 'CPU'}`);
       this.model = await this.llama.loadModel({ modelPath: this.modelPath });
       this.context = await this.model.createEmbeddingContext();
       // Probe actual output dims so callers can validate against the DB schema
@@ -85,6 +91,10 @@ export class LocalEmbedder implements IEmbedder {
   getDims(): number {
     if (this.dims === null) throw new Error('Embedder not initialized');
     return this.dims;
+  }
+
+  getGpuBackend(): string | false {
+    return this.gpuBackend;
   }
 
   getModelPath(): string | null {
@@ -178,6 +188,10 @@ export class RemoteEmbedder implements IEmbedder {
     return this.dims;
   }
 
+  getGpuBackend(): string | false {
+    return false; // remote embedders don't use a local GPU
+  }
+
   async dispose(): Promise<void> {
     // no-op
   }
@@ -213,6 +227,9 @@ export class EmbedderProxy implements IEmbedder {
   }
   getDims(): number {
     return this.inner.getDims();
+  }
+  getGpuBackend(): string | false {
+    return this.inner.getGpuBackend();
   }
   dispose(): Promise<void> {
     return this.inner.dispose();

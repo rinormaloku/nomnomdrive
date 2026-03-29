@@ -120,6 +120,8 @@ export class LocalChatEngine implements IChatEngine {
 
       const { getLlama, LlamaChatSession: Session, defineChatSessionFunction } = await (0, eval)('import("node-llama-cpp")');
       const llama = await getLlama();
+      const gpuBackend = (llama as { gpu: string | false }).gpu;
+      console.log(`[ChatEngine] GPU backend: ${gpuBackend || 'CPU'}`);
       this.model = await (llama as { loadModel(opts: { modelPath: string }): Promise<LlamaModel> }).loadModel({ modelPath });
       this.context = await this.model.createContext({ contextSize: 32768, ignoreMemorySafetyChecks: true });
       this.defineFn = defineChatSessionFunction;

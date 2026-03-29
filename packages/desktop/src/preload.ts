@@ -140,6 +140,22 @@ contextBridge.exposeInMainWorld('nomnom', {
 
   installUpdate: () => ipcRenderer.send('update:install'),
 
+  // ── GPU acceleration ────────────────────────────
+  gpuDetect: (): Promise<Array<{ type: string; label: string; size: string }>> =>
+    ipcRenderer.invoke('gpu:detect'),
+
+  gpuStatus: (): Promise<{ installed: string | null }> =>
+    ipcRenderer.invoke('gpu:status'),
+
+  gpuActiveBackend: (): Promise<{ backend: string | null }> =>
+    ipcRenderer.invoke('gpu:active-backend'),
+
+  gpuInstall: (gpuType: string): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('gpu:install', gpuType),
+
+  gpuRemove: (gpuType: string): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('gpu:remove', gpuType),
+
   // ── Models ──────────────────────────────────────
   listGgufFiles: (repoId: string): Promise<Array<{ filename: string; size: number }>> =>
     ipcRenderer.invoke('model:list-gguf', repoId),

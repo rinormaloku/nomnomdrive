@@ -7,7 +7,7 @@
   import type { EmbedConfigValue, ChatConfigValue } from '../lib/types';
   import ChatModelForm from './settings/ChatModelForm.svelte';
 
-  type Step = 'loading' | 'welcome' | 'folder' | 'embed' | 'chat' | 'downloading' | 'done' | 'error';
+  type Step = 'loading' | 'welcome' | 'folder' | 'embed' | 'chat' | 'gpu' | 'downloading' | 'done' | 'error';
 
   let step: Step = 'loading';
   let catalog: SetupCatalog | null = null;
@@ -17,6 +17,11 @@
   let embedValue: EmbedConfigValue = { provider: 'local', model: '' };
   let chatValue: ChatConfigValue = { provider: 'local', model: '' };
   let mcpPort = 23847;
+
+  // GPU state
+  let availableGpus: Array<{ type: string; label: string; size: string }> = [];
+  let selectedGpu: string = 'none'; // 'none' | 'vulkan' | 'cuda'
+  let gpuDetecting = false;
 
   // Download state
   let downloadError = '';
@@ -49,6 +54,25 @@
   function nextFromEmbed() { step = 'chat'; }
 
   async function nextFromChat() {
+    // Only show GPU step when at least one local model is selected
+    const hasLocalModel =
+      embedValue.provider === 'local' || (chatValue.provider === 'local' && chatValue.model);
+    if (hasLocalModel) {
+      step = 'gpu';
+      gpuDetecting = true;
+      try {
+        availableGpus = await nomnom.gpuDetect();
+        const status = await nomnom.gpuStatus();
+        if (status.installed) selectedGpu = status.installed;
+      } catch { /* ignore detection errors */ }
+      gpuDetecting = false;
+    } else {
+      step = 'downloading';
+      await startDownload();
+    }
+  }
+
+  async function nextFromGpu() {
     step = 'downloading';
     await startDownload();
   }
@@ -69,14 +93,26 @@
         mcpPort,
       } as Parameters<typeof nomnom.setupStart>[0]);
 
-      if (result.success) {
-        step = 'done';
-      } else if (result.error === 'cancelled') {
-        step = 'embed';
-      } else {
-        downloadError = result.error ?? 'Setup failed';
-        step = 'error';
+      if (!result.success) {
+        if (result.error === 'cancelled') {
+          step = 'embed';
+        } else {
+          downloadError = result.error ?? 'Setup failed';
+          step = 'error';
+        }
+        return;
       }
+
+      // Download GPU binary if user selected one
+      if (selectedGpu !== 'none') {
+        const gpuResult = await nomnom.gpuInstall(selectedGpu);
+        if (!gpuResult.success) {
+          // Non-fatal: warn but continue (CPU fallback still works)
+          console.warn('GPU binary download failed:', gpuResult.error);
+        }
+      }
+
+      step = 'done';
     } catch (e: any) {
       downloadError = e.message;
       step = 'error';
@@ -172,6 +208,52 @@
           <button class="setup-btn secondary" onclick={() => step = 'embed'}>Back</button>
           <button class="setup-btn primary" onclick={nextFromChat}>
             {embedValue.provider === 'local' || (chatValue.provider === 'local' && chatValue.model) ? 'Download & Finish' : 'Finish'}
+          </button>
+        </div>
+      </div>
+
+    {:else if step === 'gpu'}
+      <div class="setup-step">
+        <h3 class="setup-step-title">GPU Acceleration</h3>
+        <p class="setup-step-desc">
+          Speed up AI inference with your GPU. This downloads a small binary — the app works fine on CPU without it.
+        </p>
+
+        {#if gpuDetecting}
+          <div class="gpu-detecting">
+            <div class="setup-spinner small"></div>
+            <span>Detecting GPUs...</span>
+          </div>
+        {:else}
+          <div class="gpu-options">
+            <label class="gpu-option">
+              <input type="radio" name="gpu" value="none" bind:group={selectedGpu} />
+              <div class="gpu-option-body">
+                <span class="gpu-option-label">CPU only</span>
+                <span class="gpu-option-desc">No extra download needed</span>
+              </div>
+            </label>
+
+            {#each availableGpus as gpu}
+              <label class="gpu-option">
+                <input type="radio" name="gpu" value={gpu.type} bind:group={selectedGpu} />
+                <div class="gpu-option-body">
+                  <span class="gpu-option-label">{gpu.label}</span>
+                  <span class="gpu-option-desc">Download {gpu.size}</span>
+                </div>
+              </label>
+            {/each}
+
+            {#if availableGpus.length === 0}
+              <p class="gpu-no-gpu">No compatible GPU detected. You can add GPU support later in Settings.</p>
+            {/if}
+          </div>
+        {/if}
+
+        <div class="setup-nav">
+          <button class="setup-btn secondary" onclick={() => step = 'chat'}>Back</button>
+          <button class="setup-btn primary" onclick={nextFromGpu} disabled={gpuDetecting}>
+            {selectedGpu !== 'none' ? 'Download & Finish' : 'Skip & Finish'}
           </button>
         </div>
       </div>
@@ -407,5 +489,70 @@
 
   @keyframes setup-spin {
     to { transform: rotate(360deg); }
+  }
+
+  /* GPU step */
+  .gpu-detecting {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    padding: 12px 0;
+  }
+
+  .setup-spinner.small {
+    width: 16px;
+    height: 16px;
+    border-width: 2px;
+  }
+
+  .gpu-options {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .gpu-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: border-color var(--transition);
+  }
+
+  .gpu-option:has(input:checked) {
+    border-color: var(--accent);
+  }
+
+  .gpu-option input[type='radio'] {
+    accent-color: var(--accent);
+    margin: 0;
+  }
+
+  .gpu-option-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .gpu-option-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .gpu-option-desc {
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+
+  .gpu-no-gpu {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin: 4px 0 0;
   }
 </style>

@@ -30,6 +30,13 @@
   let watchPaths: string[] = [];
   let mcpPort = 23847;
 
+  // GPU state
+  let gpuInstalled: string | null = null;
+  let gpuAvailable: Array<{ type: string; label: string; size: string }> = [];
+  let gpuInstalling = false;
+  let gpuRemoving = false;
+  let gpuActiveBackend: string | null = null;
+
   onMount(async () => {
     try {
       const [cfg, catalog] = await Promise.all([
@@ -45,10 +52,51 @@
       chatValue = cfg.chat ?? { provider: 'local', model: cfg.model.localChat ?? '' };
       watchPaths = [...cfg.watch.paths];
       mcpPort = cfg.mcp.port;
+
+      // Load GPU status
+      const [gpuStatus, detected, activeBackend] = await Promise.all([
+        nomnom.gpuStatus(),
+        nomnom.gpuDetect(),
+        nomnom.gpuActiveBackend(),
+      ]);
+      gpuInstalled = gpuStatus.installed;
+      gpuAvailable = detected;
+      gpuActiveBackend = activeBackend.backend;
     } finally {
       loading = false;
     }
   });
+
+  async function installGpu(gpuType: string) {
+    gpuInstalling = true;
+    try {
+      const result = await nomnom.gpuInstall(gpuType);
+      if (result.success) {
+        gpuInstalled = gpuType;
+        showToast(`GPU acceleration (${gpuType}) installed — restart to activate`);
+      } else {
+        showToast(`GPU install failed: ${result.error}`, 4000);
+      }
+    } catch (e: unknown) {
+      showToast(`GPU install failed: ${e instanceof Error ? e.message : String(e)}`, 4000);
+    } finally {
+      gpuInstalling = false;
+    }
+  }
+
+  async function removeGpu() {
+    if (!gpuInstalled) return;
+    gpuRemoving = true;
+    try {
+      const result = await nomnom.gpuRemove(gpuInstalled);
+      if (result.success) {
+        gpuInstalled = null;
+        showToast('GPU acceleration removed — restart to use CPU');
+      }
+    } finally {
+      gpuRemoving = false;
+    }
+  }
 
   async function save() {
     if (!appConfig) return;
@@ -106,6 +154,45 @@
         <h3 class="section-title">Chat Model</h3>
         <p class="section-desc">For Q&A with your documents in the Chat tab.</p>
         <ChatModelForm bind:value={chatValue} catalog={chatCatalog} />
+      </section>
+
+      <div class="divider"></div>
+
+      <section class="section">
+        <h3 class="section-title">GPU Acceleration</h3>
+        <p class="section-desc">Use your GPU for faster inference. Downloads a one-time binary.</p>
+
+        {#if gpuActiveBackend}
+          <div class="gpu-runtime">
+            Running on: <span class="gpu-runtime-value">{gpuActiveBackend.toUpperCase()}</span>
+          </div>
+        {/if}
+
+        {#if gpuInstalled}
+          <div class="gpu-status">
+            <span class="gpu-badge">{gpuInstalled.toUpperCase()}</span>
+            <span class="gpu-active">Active</span>
+            <button class="btn-link danger" onclick={removeGpu} disabled={gpuRemoving}>
+              {gpuRemoving ? 'Removing...' : 'Remove'}
+            </button>
+          </div>
+        {:else if gpuAvailable.length > 0}
+          <div class="gpu-install-options">
+            {#each gpuAvailable as gpu}
+              <div class="gpu-install-row">
+                <div>
+                  <span class="gpu-install-label">{gpu.label}</span>
+                  <span class="gpu-install-size">{gpu.size}</span>
+                </div>
+                <button class="btn small" onclick={() => installGpu(gpu.type)} disabled={gpuInstalling}>
+                  {gpuInstalling ? 'Installing...' : 'Install'}
+                </button>
+              </div>
+            {/each}
+          </div>
+        {:else}
+          <p class="gpu-none">No compatible GPU detected on this system.</p>
+        {/if}
       </section>
 
       <div class="divider"></div>
@@ -265,5 +352,96 @@
 
   .btn.primary:not(:disabled):hover {
     background: var(--accent-hover);
+  }
+
+  /* GPU section */
+  .gpu-runtime {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+
+  .gpu-runtime-value {
+    font-weight: 700;
+    color: var(--green);
+  }
+
+  .gpu-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+  }
+
+  .gpu-badge {
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    background: var(--accent);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+
+  .gpu-active {
+    color: var(--green);
+    font-weight: 600;
+  }
+
+  .btn-link {
+    background: none;
+    border: none;
+    font-size: 11px;
+    font-family: var(--font);
+    cursor: pointer;
+    padding: 0;
+    margin-left: auto;
+  }
+
+  .btn-link.danger {
+    color: var(--red);
+  }
+
+  .btn-link:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .gpu-install-options {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .gpu-install-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+
+  .gpu-install-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .gpu-install-size {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-left: 6px;
+  }
+
+  .btn.small {
+    padding: 4px 12px;
+    font-size: 11px;
+  }
+
+  .gpu-none {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin: 0;
   }
 </style>

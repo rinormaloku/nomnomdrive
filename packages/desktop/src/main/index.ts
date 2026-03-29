@@ -11,6 +11,13 @@ import { spawn } from 'child_process';
 import { loadConfig, saveConfig } from './config';
 import { Store } from './store';
 import { createEmbedder, EmbedderProxy, type IEmbedder } from './embedder';
+import {
+  registerGpuLoaderHook,
+  detectAvailableGpus,
+  getInstalledGpuType,
+  downloadGpuBinary,
+  removeGpuBinary,
+} from './gpu-manager';
 import { Watcher } from './watcher';
 import { Indexer } from './indexer';
 import { IpcServer } from './ipc-server';
@@ -54,6 +61,10 @@ if (process.platform === 'linux') {
 // Do NOT pass --disable-gpu — it also disables Vulkan device enumeration,
 // which node-llama-cpp needs to detect VRAM and offload layers to the GPU.
 app.disableHardwareAcceleration();
+
+// Register ESM loader hook for GPU binaries BEFORE any getLlama() call.
+// This must happen early — before app.whenReady() triggers embedder init.
+registerGpuLoaderHook();
 
 const emitter = new EventEmitter();
 let tray: Tray | null = null;
@@ -245,6 +256,42 @@ ipcMain.handle('cloud:logout', async () => {
   mainWindow?.webContents.send('cloud:status-changed');
 });
 
+// ── GPU acceleration IPC handlers ─────────────────────────────────────────────
+
+ipcMain.handle('gpu:detect', () => detectAvailableGpus());
+
+ipcMain.handle('gpu:status', () => ({
+  installed: getInstalledGpuType(),
+}));
+
+ipcMain.handle('gpu:install', async (_event, gpuType: string) => {
+  try {
+    await downloadGpuBinary(gpuType as 'vulkan' | 'cuda', (downloaded, total) => {
+      mainWindow?.webContents.send('setup:progress', {
+        phase: 'gpu',
+        modelId: gpuType,
+        modelLabel: `GPU acceleration (${gpuType})`,
+        downloaded,
+        total,
+      });
+    });
+    // Re-register the hook so the newly downloaded binary is discoverable
+    registerGpuLoaderHook();
+    return { success: true };
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) };
+  }
+});
+
+ipcMain.handle('gpu:remove', async (_event, gpuType: string) => {
+  try {
+    await removeGpuBinary(gpuType as 'vulkan' | 'cuda');
+    return { success: true };
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) };
+  }
+});
+
 // ─── IPC handlers for renderer data requests ──────────────────────────────────
 
 // These are set up inside app.whenReady so they have access to `store` and `config`.
@@ -356,6 +403,10 @@ app.whenReady().then(async () => {
   ipcMain.handle('get-stats', async () => {
     return store.getStats();
   });
+
+  ipcMain.handle('gpu:active-backend', () => ({
+    backend: embedder.isReady() ? (embedder.getGpuBackend() || 'cpu') : null,
+  }));
 
   ipcMain.handle('cloud:login', async (_event, serverUrl: string = 'https://cloud.nomnomdrive.com') => {
     const normalizedUrl = serverUrl.replace(/\/$/, '');
