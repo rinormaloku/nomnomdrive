@@ -1,5 +1,6 @@
 <script lang="ts">
   import { config, updateReady, cloudStatus } from '../lib/stores';
+  import { Copy, Check } from 'lucide-svelte';
 
   $: localMcpUrl = $config.mcpPort ? `http://localhost:${$config.mcpPort}/mcp` : null;
   $: cloudMcpUrl = $cloudStatus?.mode === 'cloud' && $cloudStatus.serverUrl
@@ -32,14 +33,13 @@
       <button class="status-url-btn" class:copied={localCopied} onclick={copyLocal} title="Copy local MCP URL">
         <span class="mcp-dot active"></span>
         <span class="status-url-text">{localMcpUrl}</span>
-        <svg class="status-copy-icon" width="10" height="10" viewBox="0 0 16 16" fill="none">
+        <span class="status-copy-icon">
           {#if localCopied}
-            <path d="M3 8L6.5 11.5L13 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <Check size={10} />
           {:else}
-            <rect x="5" y="5" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.3" />
-            <path d="M11 5V3.5A1.5 1.5 0 009.5 2h-6A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5" stroke="currentColor" stroke-width="1.3" />
+            <Copy size={10} />
           {/if}
-        </svg>
+        </span>
       </button>
     {:else}
       <span class="mcp-indicator">
@@ -49,18 +49,17 @@
     {/if}
 
     {#if cloudMcpUrl}
-      <span class="status-sep">·</span>
+      <span class="status-sep">&middot;</span>
       <button class="status-url-btn status-cloud-btn" class:copied={cloudCopied} onclick={copyCloud} title="Copy cloud MCP URL">
         <span class="cloud-dot"></span>
         <span class="status-url-text">{cloudMcpUrl}</span>
-        <svg class="status-copy-icon" width="10" height="10" viewBox="0 0 16 16" fill="none">
+        <span class="status-copy-icon">
           {#if cloudCopied}
-            <path d="M3 8L6.5 11.5L13 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <Check size={10} />
           {:else}
-            <rect x="5" y="5" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.3" />
-            <path d="M11 5V3.5A1.5 1.5 0 009.5 2h-6A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5" stroke="currentColor" stroke-width="1.3" />
+            <Copy size={10} />
           {/if}
-        </svg>
+        </span>
       </button>
     {/if}
   </div>

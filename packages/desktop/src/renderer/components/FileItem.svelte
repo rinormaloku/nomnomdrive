@@ -2,6 +2,7 @@
   import type { Document } from '../lib/types';
   import { nomnom } from '../lib/nomnom';
   import { timeAgo, formatSize, fileIconSvg, basename } from '../lib/utils';
+  import { Loader2, XCircle, CheckCircle2 } from 'lucide-svelte';
 
   let { doc, depth, now = Date.now() }: { doc: Document; depth: number; now?: number } = $props();
 </script>
@@ -20,24 +21,15 @@
 
     {#if doc._syncing}
       <span class="file-status syncing">
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-          <circle cx="8" cy="8" r="6" stroke="#e1e1e8" stroke-width="1.5" />
-          <path d="M14 8a6 6 0 00-6-6" stroke="#0061ff" stroke-width="1.5" stroke-linecap="round" />
-        </svg>
+        <Loader2 size={12} class="spin" color="var(--accent)" />
       </span>
     {:else if doc._error}
       <span class="file-status error">
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-          <circle cx="8" cy="8" r="6" stroke="#de350b" stroke-width="1.5" />
-          <path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="#de350b" stroke-width="1.3" stroke-linecap="round" />
-        </svg>
+        <XCircle size={12} color="var(--red)" />
       </span>
     {:else}
       <span class="file-status done">
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-          <circle cx="8" cy="8" r="6" fill="#e6f4ee" stroke="#00875a" stroke-width="1" />
-          <path d="M5.5 8l1.8 1.8 3.2-3.6" stroke="#00875a" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
+        <CheckCircle2 size={12} color="var(--green)" />
       </span>
     {/if}
 
@@ -48,3 +40,12 @@
     {/if}
   </div>
 </li>
+
+<style>
+  :global(.spin) {
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+</style>

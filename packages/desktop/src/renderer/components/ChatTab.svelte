@@ -3,6 +3,7 @@
   import { activeTab, config, setupProgress } from '../lib/stores';
   import { nomnom } from '../lib/nomnom';
   import { renderMarkdown } from '../lib/markdown';
+  import { MessageSquare, MessageSquareText, Sparkles, ArrowUp } from 'lucide-svelte';
 
   type ToolCall = {
     name: string;
@@ -175,9 +176,7 @@
 {:else if loadError === '__not_configured__'}
   <div class="chat-empty-state">
     <span class="chat-empty-icon">
-      <svg width="28" height="28" viewBox="0 0 16 16" fill="none">
-        <path d="M2 3a1 1 0 011-1h10a1 1 0 011 1v7a1 1 0 01-1 1H5l-3 3V3z" stroke="#94a3b8" stroke-width="1.2" stroke-linejoin="round" />
-      </svg>
+      <MessageSquare size={28} color="#94a3b8" />
     </span>
     <h3 class="chat-empty-title">Chat is not enabled</h3>
     <p class="chat-empty-desc">
@@ -200,10 +199,7 @@
       {#if messages.length === 0}
         <div class="chat-welcome">
           <span class="chat-welcome-icon">
-            <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
-              <path d="M2 3a1 1 0 011-1h10a1 1 0 011 1v7a1 1 0 01-1 1H5l-3 3V3z" stroke="#94a3b8" stroke-width="1.3" stroke-linejoin="round" />
-              <path d="M5 5.5h6M5 8h4" stroke="#94a3b8" stroke-width="1.2" stroke-linecap="round" />
-            </svg>
+            <MessageSquareText size={20} color="#94a3b8" />
           </span>
           <p>Ask anything about your documents</p>
         </div>
@@ -224,9 +220,7 @@
                   <details class="tool-call-block">
                     <summary class="tool-call-summary">
                       <span class="tool-call-icon">
-                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                          <path d="M6.5 1.5l-1 3.5L2 6.5l3.5 1.5 1 3.5 1-3.5L11 6.5 7.5 5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
-                        </svg>
+                        <Sparkles size={12} />
                       </span>
                       <span class="tool-call-name">{tc.name}</span>(<span class="tool-call-params">{formatToolParams(tc.params)}</span>)
                     </summary>
@@ -259,9 +253,7 @@
         onkeydown={onKeydown}
       />
       <button class="chat-send-btn" disabled={busy} onclick={sendMessage} title="Send">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-          <path d="M2 8l5-5v3.5h5V8H7v3.5L2 8z" fill="currentColor" transform="rotate(-90 8 8)" />
-        </svg>
+        <ArrowUp size={14} />
       </button>
     </div>
 
@@ -291,12 +283,12 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    color: #94a3b8;
+    color: var(--text-dim);
     user-select: none;
   }
 
   .tool-call-summary:hover {
-    color: #cbd5e1;
+    color: var(--text-secondary);
   }
 
   .tool-call-icon {
@@ -307,11 +299,11 @@
 
   .tool-call-name {
     font-weight: 600;
-    color: #a78bfa;
+    color: var(--accent);
   }
 
   .tool-call-params {
-    color: #94a3b8;
+    color: var(--text-dim);
     font-family: monospace;
     font-size: 0.9em;
   }
@@ -326,7 +318,7 @@
     white-space: pre-wrap;
     word-break: break-word;
     font-size: 0.85em;
-    color: #94a3b8;
+    color: var(--text-dim);
     max-height: 200px;
     overflow-y: auto;
   }

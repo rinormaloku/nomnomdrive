@@ -3,10 +3,64 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <title>NomNomDrive</title>
 </head>
 <body>
   <div id="app"></div>
+  <script>
+    // Dev mock: if not running inside Electron, provide a fake window.nomnom
+    if (!window.nomnom) {
+      const noop = () => () => {};
+      const mockDocs = [
+        { relativePath: 'project-overview.md', absolutePath: '/home/user/NomNomDrive/project-overview.md', fileSize: 12400, fileType: 'md', chunkCount: 8, folderId: 'default', indexedAt: Date.now() - 3600000 },
+        { relativePath: 'api-reference.pdf', absolutePath: '/home/user/NomNomDrive/api-reference.pdf', fileSize: 245000, fileType: 'pdf', chunkCount: 42, folderId: 'default', indexedAt: Date.now() - 7200000 },
+        { relativePath: 'notes/meeting-notes.md', absolutePath: '/home/user/NomNomDrive/notes/meeting-notes.md', fileSize: 3200, fileType: 'md', chunkCount: 3, folderId: 'default', indexedAt: Date.now() - 1800000 },
+        { relativePath: 'notes/todo.txt', absolutePath: '/home/user/NomNomDrive/notes/todo.txt', fileSize: 890, fileType: 'txt', chunkCount: 1, folderId: 'default', indexedAt: Date.now() - 86400000 },
+        { relativePath: 'research/paper.pdf', absolutePath: '/home/user/NomNomDrive/research/paper.pdf', fileSize: 1520000, fileType: 'pdf', chunkCount: 95, folderId: 'default', indexedAt: Date.now() - 172800000 },
+        { relativePath: 'research/data.csv', absolutePath: '/home/user/NomNomDrive/research/data.csv', fileSize: 45600, fileType: 'csv', chunkCount: 12, folderId: 'default', indexedAt: Date.now() - 18000000 },
+      ];
+      window.nomnom = {
+        setupCheck: () => Promise.resolve({ needsSetup: false, needsModelDownload: false }),
+        setupGetCatalog: () => Promise.resolve({ embedModels: [], chatModels: [] }),
+        setupStart: () => Promise.resolve(),
+        setupCancel: () => {},
+        getDocuments: () => Promise.resolve(mockDocs),
+        getStats: () => Promise.resolve({ fileCount: 6, chunkCount: 161 }),
+        getCloudStatus: () => Promise.resolve({ mode: 'local', hasCredentials: false, serverUrl: null }),
+        configGet: () => Promise.resolve({ dropFolder: '/home/user/NomNomDrive', mcpPort: 23847, chatConfigured: true }),
+        configSave: () => Promise.resolve(),
+        openDropFolder: () => {},
+        openExternalUrl: () => {},
+        openFile: () => {},
+        openFolderDialog: () => Promise.resolve(null),
+        copyToWatchFolder: () => Promise.resolve({ success: true, results: [] }),
+        cloudLogin: () => Promise.resolve({ success: true }),
+        cloudLogout: () => Promise.resolve(),
+        registerMcpClient: (c) => Promise.resolve({ registered: true, client: c }),
+        chatInit: () => Promise.resolve(),
+        chatSend: () => Promise.resolve(),
+        chatReset: () => Promise.resolve(),
+        listGgufFiles: () => Promise.resolve([]),
+        gpuDetect: () => Promise.resolve({ available: false }),
+        gpuStatus: () => Promise.resolve({ installed: false }),
+        gpuActiveBackend: () => Promise.resolve('cpu'),
+        gpuInstall: () => Promise.resolve(),
+        gpuRemove: () => Promise.resolve(),
+        installUpdate: () => {},
+        getPathForFile: (f) => f.path || f.name,
+        onIndexingProgress: noop, onIndexingComplete: noop, onIndexingError: noop,
+        onIndexingDeleted: noop, onModelReady: noop, onModelError: noop,
+        onConfig: (cb) => { setTimeout(() => cb({ dropFolder: '/home/user/NomNomDrive', mcpPort: 23847, chatConfigured: true }), 50); },
+        onSetupProgress: noop, onSetupComplete: noop,
+        onSetupError: noop, onSetupGpuFailed: noop, onCloudStatusChanged: noop,
+        onChatChunk: noop, onChatToolCall: noop, onUpdateAvailable: noop,
+        onUpdateDownloaded: noop,
+      };
+    }
+  </script>
   <script type="module" src="./main.ts"></script>
 </body>
 </html>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { config, activeTab } from '../lib/stores';
   import { nomnom } from '../lib/nomnom';
+  import { FolderOpen, Settings } from 'lucide-svelte';
 </script>
 
 <div class="header">
@@ -35,16 +36,11 @@
       title="Open drop folder"
       onclick={() => $config.dropFolder && nomnom.openDropFolder($config.dropFolder)}
     >
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-        <path d="M1 3.5C1 2.67 1.67 2 2.5 2H6l1.5 1.5H13.5C14.33 3.5 15 4.17 15 5V12.5C15 13.33 14.33 14 13.5 14H2.5C1.67 14 1 13.33 1 12.5V3.5Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" />
-      </svg>
+      <FolderOpen size={14} />
       <span>Open Folder</span>
     </button>
     <button class="icon-btn" title="Settings" onclick={() => activeTab.set('settings')}>
-      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-        <path d="M8 10a2 2 0 100-4 2 2 0 000 4z" stroke="currentColor" stroke-width="1.3" />
-        <path d="M13.5 8a5.5 5.5 0 01-.3 1.8l1.3 1-1 1.7-1.5-.6a5.5 5.5 0 01-1.5.9L10 14H8l-.5-1.2a5.5 5.5 0 01-1.5-.9l-1.5.6-1-1.7 1.3-1A5.5 5.5 0 014.5 8c0-.6.1-1.2.3-1.8l-1.3-1 1-1.7 1.5.6A5.5 5.5 0 017.5 3.2L8 2h2l.5 1.2a5.5 5.5 0 011.5.9l1.5-.6 1 1.7-1.3 1c.2.6.3 1.2.3 1.8z" stroke="currentColor" stroke-width="1.3" />
-      </svg>
+      <Settings size={15} />
     </button>
   </div>
 </div>

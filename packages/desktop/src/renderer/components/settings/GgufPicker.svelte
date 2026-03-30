@@ -93,6 +93,7 @@
 
   .field-select:focus {
     border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-light);
   }
 
   .gguf-hint {

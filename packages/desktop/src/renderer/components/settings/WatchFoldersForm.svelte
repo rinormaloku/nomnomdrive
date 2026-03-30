@@ -1,5 +1,6 @@
 <script lang="ts">
   import { nomnom } from '../../lib/nomnom';
+  import { X, Plus } from 'lucide-svelte';
 
   export let paths: string[] = [];
 
@@ -43,9 +44,7 @@
         <li class="folder-item">
           <span class="folder-path" title={p}>{p}</span>
           <button class="remove-btn" onclick={() => removeFolder(p)} title="Remove folder">
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-              <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
+            <X size={10} />
           </button>
         </li>
       {/each}
@@ -67,15 +66,11 @@
   {:else}
     <div class="add-buttons">
       <button class="add-btn" onclick={pickFolder}>
-        <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
-          <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-        </svg>
+        <Plus size={11} />
         Browse…
       </button>
       <button class="add-btn" onclick={() => adding = true}>
-        <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
-          <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-        </svg>
+        <Plus size={11} />
         Enter path
       </button>
     </div>

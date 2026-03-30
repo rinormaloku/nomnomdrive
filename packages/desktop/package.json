@@ -51,6 +51,7 @@
     "cross-env": "^10.1.0",
     "electron": "^34.0.0",
     "electron-builder": "^25.0.0",
+    "lucide-svelte": "^1.0.1",
     "svelte": "^5.53.6",
     "svelte-check": "^4.4.4",
     "ts-node": "^10.9.0",
