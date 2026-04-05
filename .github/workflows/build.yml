@@ -23,7 +23,7 @@ jobs:
           - os: ubuntu-latest    # x64
           - os: ubuntu-24.04-arm # arm64
           - os: macos-latest     # arm64 (Apple Silicon)
-          - os: macos-13         # x64 (Intel)
+          # - os: macos-15-large   # x64 (Intel)
           - os: windows-latest   # x64
 
     runs-on: ${{ matrix.os }}
