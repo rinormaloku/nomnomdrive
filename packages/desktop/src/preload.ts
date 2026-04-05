@@ -164,6 +164,13 @@ contextBridge.exposeInMainWorld('nomnom', {
   listGgufFiles: (repoId: string): Promise<Array<{ filename: string; size: number }>> =>
     ipcRenderer.invoke('model:list-gguf', repoId),
 
+  // ── Launch at startup ────────────────────────────
+  getOpenAtLogin: (): Promise<boolean> =>
+    ipcRenderer.invoke('app:get-open-at-login'),
+
+  setOpenAtLogin: (enabled: boolean): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('app:set-open-at-login', enabled),
+
   // ── Settings ─────────────────────────────────────
   configGet: (): Promise<unknown> => ipcRenderer.invoke('config:get'),
 

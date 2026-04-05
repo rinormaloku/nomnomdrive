@@ -394,9 +394,6 @@ app.whenReady().then(async () => {
     return;
   }
 
-  // Enable auto-start at login
-  app.setLoginItemSettings({ openAtLogin: true });
-
   // Load config (may be replaced after first-run setup completes)
   let config = await loadConfig();
 
@@ -667,6 +664,16 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('chat:reset', async () => {
     await chatEngine.resetSession();
+  });
+
+  // ── Launch at startup ──
+  ipcMain.handle('app:get-open-at-login', () => {
+    return app.getLoginItemSettings().openAtLogin;
+  });
+
+  ipcMain.handle('app:set-open-at-login', (_event, enabled: boolean) => {
+    app.setLoginItemSettings({ openAtLogin: enabled });
+    return { success: true };
   });
 
   // ── Settings IPC ──

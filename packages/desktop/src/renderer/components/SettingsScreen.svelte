@@ -1,11 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { activeTab, showToast } from '../lib/stores';
+  import { showToast } from '../lib/stores';
   import { nomnom } from '../lib/nomnom';
   import EmbedForm from './settings/EmbedForm.svelte';
   import type { EmbedConfigValue, ChatConfigValue } from '../lib/types';
   import ChatModelForm from './settings/ChatModelForm.svelte';
   import WatchFoldersForm from './settings/WatchFoldersForm.svelte';
+  import ToggleSwitch from './settings/ToggleSwitch.svelte';
+  import { Settings, Sparkles } from 'lucide-svelte';
 
   type AppConfig = {
     mode: string;
@@ -27,8 +29,13 @@
   // Form state
   let embedValue: EmbedConfigValue = { provider: 'local', model: '' };
   let chatValue: ChatConfigValue = { provider: 'local', model: '' };
+  let chatEnabled = false;
+  let lastChatValue: ChatConfigValue = { provider: 'local', model: '' };
   let watchPaths: string[] = [];
   let mcpPort = 23847;
+
+  // Launch at startup
+  let openAtLogin = true;
 
   // GPU state
   let gpuInstalled: string | null = null;
@@ -40,17 +47,30 @@
 
   onMount(async () => {
     try {
-      const [cfg, catalog] = await Promise.all([
+      const [cfg, catalog, loginSetting] = await Promise.all([
         nomnom.configGet() as Promise<AppConfig>,
         nomnom.setupGetCatalog(),
+        nomnom.getOpenAtLogin(),
       ]);
       appConfig = cfg;
       embedCatalog = catalog.embedModels;
       chatCatalog = catalog.chatModels;
+      openAtLogin = loginSetting;
 
       // Populate form from config
       embedValue = cfg.embed ?? { provider: 'local', model: cfg.model.localEmbed };
       chatValue = cfg.chat ?? { provider: 'local', model: cfg.model.localChat ?? '' };
+
+      // Determine if chat is enabled (not the disabled state)
+      const isDisabled = chatValue.provider === 'local' && !chatValue.model;
+      chatEnabled = !isDisabled;
+      if (chatEnabled) {
+        lastChatValue = { ...chatValue };
+      } else {
+        // Default restore value
+        lastChatValue = { provider: 'local', model: chatCatalog[0]?.id ?? '' };
+      }
+
       watchPaths = [...cfg.watch.paths];
       mcpPort = cfg.mcp.port;
 
@@ -68,6 +88,25 @@
       loading = false;
     }
   });
+
+  function handleChatToggle() {
+    if (chatEnabled) {
+      // Restoring — use last known value
+      chatValue = { ...lastChatValue };
+    } else {
+      // Disabling — save current value for later restore
+      lastChatValue = { ...chatValue };
+      chatValue = { provider: 'local', model: '' };
+    }
+  }
+
+  async function handleOpenAtLoginChange() {
+    try {
+      await nomnom.setOpenAtLogin(openAtLogin);
+    } catch (e: unknown) {
+      showToast(`Failed: ${e instanceof Error ? e.message : String(e)}`, 4000);
+    }
+  }
 
   async function installGpu(gpuType: string) {
     gpuInstalling = true;
@@ -148,86 +187,91 @@
   {:else}
     <div class="settings-body">
 
+      <!-- ── Models ─────────────────────────────────── -->
       <section class="section">
-        <h3 class="section-title">Embedding</h3>
-        <p class="section-desc">Creates searchable representations of your documents.</p>
-        <EmbedForm bind:value={embedValue} catalog={embedCatalog} />
-      </section>
+        <h3 class="section-title"><Sparkles size={13} /> Models</h3>
+        <p class="section-desc">Choose which models power search and chat.</p>
 
-      <div class="divider"></div>
-
-      <section class="section">
-        <h3 class="section-title">Chat Model</h3>
-        <p class="section-desc">For Q&A with your documents in the Chat tab.</p>
-        <ChatModelForm bind:value={chatValue} catalog={chatCatalog} />
-      </section>
-
-      <div class="divider"></div>
-
-      <section class="section">
-        <h3 class="section-title">GPU Acceleration</h3>
-        <p class="section-desc">Use your GPU for faster inference. Downloads a one-time binary.</p>
-
-        {#if gpuActiveBackend}
-          <div class="gpu-runtime">
-            Running on: <span class="gpu-runtime-value">{gpuActiveBackend.toUpperCase()}</span>
+        <div class="models-grid">
+          <div class="model-col">
+            <h4 class="subsection-title">Embedding</h4>
+            <p class="subsection-desc">Searchable representations of your documents.</p>
+            <div class="section-card">
+              <EmbedForm bind:value={embedValue} catalog={embedCatalog} />
+            </div>
           </div>
-        {/if}
 
-        {#if gpuInstalled}
-          <div class="gpu-status">
-            <span class="gpu-badge">{gpuInstalled.toUpperCase()}</span>
-            {#if gpuValidated === false}
-              <span class="gpu-warning">Not verified</span>
+          <div class="model-col">
+            <div class="subsection-title-row">
+              <h4 class="subsection-title">Chat</h4>
+              <ToggleSwitch bind:checked={chatEnabled} on:change={handleChatToggle} />
+            </div>
+            <p class="subsection-desc">Q&A with your documents in the Chat tab.</p>
+            {#if chatEnabled}
+              <div class="section-card">
+                <ChatModelForm bind:value={chatValue} catalog={chatCatalog} />
+              </div>
             {:else}
-              <span class="gpu-active">Active</span>
+              <p class="disabled-hint">Disabled — searchable via MCP tools only.</p>
             {/if}
-            <button class="btn-link danger" onclick={removeGpu} disabled={gpuRemoving}>
-              {gpuRemoving ? 'Removing...' : 'Remove'}
-            </button>
           </div>
-        {:else if gpuAvailable.length > 0}
-          <div class="gpu-install-options">
-            {#each gpuAvailable as gpu}
-              <div class="gpu-install-row">
-                <div>
-                  <span class="gpu-install-label">{gpu.label}</span>
-                  <span class="gpu-install-size">{gpu.size}</span>
-                </div>
-                <button class="btn small" onclick={() => installGpu(gpu.type)} disabled={gpuInstalling}>
-                  {gpuInstalling ? 'Installing...' : 'Install'}
+        </div>
+      </section>
+
+      <div class="divider"></div>
+
+      <!-- ── General ────────────────────────────────── -->
+      <section class="section">
+        <h3 class="section-title"><Settings size={13} /> General</h3>
+        <div class="section-card general-card">
+          <div class="setting-row">
+            <span class="setting-label">Launch at startup</span>
+            <ToggleSwitch bind:checked={openAtLogin} on:change={handleOpenAtLoginChange} />
+          </div>
+          <div class="setting-divider"></div>
+          <div class="setting-row">
+            <div class="setting-label-group">
+              <span class="setting-label">GPU acceleration</span>
+              {#if gpuActiveBackend}
+                <span class="setting-hint">Running on <strong>{gpuActiveBackend.toUpperCase()}</strong></span>
+              {/if}
+            </div>
+            {#if gpuInstalled}
+              <div class="gpu-inline">
+                <span class="gpu-badge">{gpuInstalled.toUpperCase()}</span>
+                <button class="btn-link danger" onclick={removeGpu} disabled={gpuRemoving}>
+                  {gpuRemoving ? 'Removing...' : 'Remove'}
                 </button>
               </div>
-            {/each}
+            {:else if gpuAvailable.length > 0}
+              <div class="gpu-inline">
+                {#each gpuAvailable as gpu}
+                  <button class="btn small" onclick={() => installGpu(gpu.type)} disabled={gpuInstalling}>
+                    {gpuInstalling ? 'Installing...' : `Install ${gpu.label}`}
+                  </button>
+                {/each}
+              </div>
+            {:else}
+              <span class="setting-hint">No compatible GPU</span>
+            {/if}
           </div>
-        {:else}
-          <p class="gpu-none">No compatible GPU detected on this system.</p>
-        {/if}
-      </section>
-
-      <div class="divider"></div>
-
-      <section class="section">
-        <h3 class="section-title">Watched Folders</h3>
-        <p class="section-desc">NomNomDrive indexes documents in these folders.</p>
-        <WatchFoldersForm bind:paths={watchPaths} />
-      </section>
-
-      <div class="divider"></div>
-
-      <section class="section">
-        <h3 class="section-title">Advanced</h3>
-        <div class="field-row">
-          <label class="field-label" for="mcp-port">MCP Server Port</label>
-          <input
-            id="mcp-port"
-            class="port-input"
-            type="number"
-            bind:value={mcpPort}
-            min="1024"
-            max="65535"
-          />
+          <div class="setting-divider"></div>
+          <div class="setting-row">
+            <label class="setting-label" for="mcp-port">MCP server port</label>
+            <input
+              id="mcp-port"
+              class="port-input"
+              type="number"
+              bind:value={mcpPort}
+              min="1024"
+              max="65535"
+            />
+          </div>
         </div>
+
+        <h4 class="subsection-title general-subsection">Watched folders</h4>
+        <p class="subsection-desc">NomNomDrive indexes documents in these folders.</p>
+        <WatchFoldersForm bind:paths={watchPaths} />
       </section>
 
     </div>
@@ -283,7 +327,10 @@
   }
 
   .section-title {
-    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 15px;
     font-weight: 600;
     color: var(--text);
     margin: 0 0 3px;
@@ -295,22 +342,81 @@
     margin: 0 0 10px;
   }
 
+  .models-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .model-col {
+    min-width: 0;
+  }
+
+  .subsection-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0 0 2px;
+  }
+
+  .subsection-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 2px;
+  }
+
+  .subsection-desc {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin: 0 0 8px;
+  }
+
+  .general-subsection {
+    margin-top: 16px;
+  }
+
+  .section-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px;
+  }
+
+  .disabled-hint {
+    font-size: 11px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin: 0;
+  }
+
   .divider {
     height: 1px;
     background: var(--border);
     margin: 0 -18px;
   }
 
-  .field-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+  .general-card {
+    padding: 0;
+    max-width: 360px;
   }
 
-  .field-label {
+  .setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+  }
+
+  .setting-label {
     font-size: 12px;
     color: var(--text);
-    flex: 1;
+  }
+
+  .setting-divider {
+    height: 1px;
+    background: var(--border);
   }
 
   .port-input {
@@ -365,23 +471,27 @@
     background: var(--accent-hover);
   }
 
-  /* GPU section */
-  .gpu-runtime {
-    font-size: 12px;
-    color: var(--text-secondary);
-    margin-bottom: 8px;
+  .setting-label-group {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
   }
 
-  .gpu-runtime-value {
-    font-weight: 700;
+  .setting-hint {
+    font-size: 10px;
+    color: var(--text-secondary);
+  }
+
+  .setting-hint strong {
     color: var(--green);
   }
 
-  .gpu-status {
+  /* GPU inline (inside General card) */
+  .gpu-inline {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 12px;
+    gap: 6px;
+    flex-shrink: 0;
   }
 
   .gpu-badge {
@@ -394,16 +504,6 @@
     letter-spacing: 0.5px;
   }
 
-  .gpu-active {
-    color: var(--green);
-    font-weight: 600;
-  }
-
-  .gpu-warning {
-    color: var(--yellow, #e5a100);
-    font-weight: 600;
-  }
-
   .btn-link {
     background: none;
     border: none;
@@ -411,7 +511,6 @@
     font-family: var(--font);
     cursor: pointer;
     padding: 0;
-    margin-left: auto;
   }
 
   .btn-link.danger {
@@ -423,41 +522,8 @@
     cursor: not-allowed;
   }
 
-  .gpu-install-options {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .gpu-install-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 12px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-  }
-
-  .gpu-install-label {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text);
-  }
-
-  .gpu-install-size {
-    font-size: 11px;
-    color: var(--text-secondary);
-    margin-left: 6px;
-  }
-
   .btn.small {
     padding: 4px 12px;
     font-size: 11px;
-  }
-
-  .gpu-none {
-    font-size: 11px;
-    color: var(--text-secondary);
-    margin: 0;
   }
 </style>

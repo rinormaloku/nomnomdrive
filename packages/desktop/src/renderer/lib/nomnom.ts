@@ -68,6 +68,9 @@ declare global {
       gpuRemove: (gpuType: string) => Promise<{ success: boolean; error?: string }>;
       // Models
       listGgufFiles: (repoId: string) => Promise<Array<{ filename: string; size: number }>>;
+      // Launch at startup
+      getOpenAtLogin: () => Promise<boolean>;
+      setOpenAtLogin: (enabled: boolean) => Promise<{ success: boolean }>;
       // Settings
       configGet: () => Promise<unknown>;
       configSave: (updates: unknown) => Promise<{ restartRequired: boolean }>;
@@ -206,6 +209,8 @@ export const nomnom = {
   gpuInstall: (gpuType: string) => window.nomnom.gpuInstall(gpuType),
   gpuRemove: (gpuType: string) => window.nomnom.gpuRemove(gpuType),
   listGgufFiles: (repoId: string) => window.nomnom.listGgufFiles(repoId),
+  getOpenAtLogin: () => window.nomnom.getOpenAtLogin(),
+  setOpenAtLogin: (enabled: boolean) => window.nomnom.setOpenAtLogin(enabled),
   configGet: () => window.nomnom.configGet(),
   configSave: (updates: unknown) => window.nomnom.configSave(updates),
   openFolderDialog: () => window.nomnom.openFolderDialog(),

@@ -8,10 +8,8 @@
   const CUSTOM = '__custom__';
 
   // Internal state split by provider
-  let provider: 'disabled' | 'local' | 'openai' =
-    value.provider === 'openai' ? 'openai'
-    : value.provider === 'local' && value.model ? 'local'
-    : 'disabled';
+  let provider: 'local' | 'openai' =
+    value.provider === 'openai' ? 'openai' : 'local';
 
   let localModel = value.provider === 'local' && value.model ? value.model : '';
   let localCustom = '';
@@ -48,9 +46,7 @@
   $: if (hfRepoId === null) ggufFile = '';
 
   function syncValue() {
-    if (provider === 'disabled') {
-      value = { provider: 'local', model: '' };
-    } else if (provider === 'local') {
+    if (provider === 'local') {
       if (selected === CUSTOM) {
         let model = localCustom.trim();
         // Auto-prepend hf: for org/repo patterns (not absolute paths)
@@ -79,16 +75,12 @@
   <div class="field">
     <label class="field-label" for="chat-provider">Provider</label>
     <select id="chat-provider" class="field-select" bind:value={provider}>
-      <option value="disabled">Disabled — MCP tools only</option>
       <option value="local">Local (GGUF model)</option>
       <option value="openai">OpenAI / OpenAI-compatible API</option>
     </select>
   </div>
 
-  {#if provider === 'disabled'}
-    <p class="field-hint-block">Your documents are still searchable via MCP tools. Use Claude Code, Cursor, or any MCP client — see the MCP tab for setup.</p>
-
-  {:else if provider === 'local'}
+  {#if provider === 'local'}
     <div class="field">
       <label class="field-label" for="chat-model">Model</label>
       <select id="chat-model" class="field-select" bind:value={selected}>
@@ -178,13 +170,6 @@
     text-transform: none;
     letter-spacing: 0;
     color: var(--text-dim);
-  }
-
-  .field-hint-block {
-    font-size: 11px;
-    color: var(--text-secondary);
-    line-height: 1.5;
-    margin: 0;
   }
 
   .field-select,
