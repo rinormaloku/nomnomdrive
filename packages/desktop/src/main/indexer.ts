@@ -23,6 +23,10 @@ export class Indexer {
   private queue: QueueItem[] = [];
   private processing = false;
   private emitter: EventEmitter | null = null;
+  /** Total files enqueued in the current batch — resets when the queue drains. */
+  private batchTotal = 0;
+  /** Files completed (indexed, deleted, or failed) in the current batch. */
+  private batchDone = 0;
 
   constructor(store: Store, embedder: IEmbedder) {
     this.store = store;
@@ -40,6 +44,7 @@ export class Indexer {
       this.queue[existing].action = action;
     } else {
       this.queue.push({ filePath, action });
+      this.batchTotal++;
     }
     this.processNext();
   }
@@ -85,8 +90,13 @@ export class Indexer {
       this.emitter?.emit('indexing:error', { filePath: item.filePath, error: String(err) });
     } finally {
       this.processing = false;
+      this.batchDone++;
       if (this.queue.length > 0) {
         setImmediate(() => this.processNext());
+      } else {
+        // Queue drained — reset batch counters for the next batch
+        this.batchTotal = 0;
+        this.batchDone = 0;
       }
     }
   }
@@ -181,7 +191,11 @@ export class Indexer {
     this.emitter?.emit('indexing:deleted', { filePath });
   }
 
-  private emitProgress(progress: IndexingProgress): void {
-    this.emitter?.emit('indexing:progress', progress);
+  private emitProgress(progress: Omit<IndexingProgress, 'filesDone' | 'filesTotal'>): void {
+    this.emitter?.emit('indexing:progress', {
+      ...progress,
+      filesDone: this.batchDone,
+      filesTotal: this.batchTotal,
+    } satisfies IndexingProgress);
   }
 }

@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('nomnom', {
       chunksTotal: number;
       phase: string;
       queueLength?: number;
+      filesDone?: number;
+      filesTotal?: number;
     }) => void,
   ) => ipcRenderer.on('indexing:progress', (_e, data) => cb(data)),
 
@@ -134,6 +136,16 @@ contextBridge.exposeInMainWorld('nomnom', {
 
   chatReset: (): Promise<void> =>
     ipcRenderer.invoke('chat:reset'),
+
+  chatDefaultModelStatus: (): Promise<{
+    modelId: string;
+    label: string;
+    size: string;
+    downloaded: boolean;
+  }> => ipcRenderer.invoke('chat:default-model-status'),
+
+  onChatModelState: (cb: (data: { state: 'reloading' | 'ready' | 'error'; message?: string }) => void) =>
+    ipcRenderer.on('chat:model-state', (_e, data) => cb(data)),
 
   // ── Updates ─────────────────────────────────────
   onUpdateAvailable: (cb: (info: { version: string }) => void) =>

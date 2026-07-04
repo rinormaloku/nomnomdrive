@@ -39,13 +39,39 @@ import {
   getDefaultSetupOptions,
   EMBED_MODELS,
   CHAT_MODELS,
+  DEFAULT_CHAT_MODEL,
   listHuggingFaceGgufFiles,
+  modelExists,
   getEmbedConfig,
   getChatConfig,
   type SetupOptions,
   type AppConfig,
   type ChatConfig,
 } from '@nomnomdrive/shared';
+
+/**
+ * Serializes the chat-relevant settings so that saving unrelated settings
+ * (watch paths, MCP port, …) doesn't tear down and reload the chat engine.
+ */
+function chatSettingsKey(cfg: AppConfig): string {
+  const chat = getChatConfig(cfg);
+  if (chat.provider === 'openai') {
+    return `openai|${chat.model}|${chat.apiKey}|${chat.baseUrl ?? ''}`;
+  }
+  return `local|${chat.model}|${cfg.model.localChat}`;
+}
+
+/**
+ * Serializes the embed-relevant settings so that saving unrelated settings
+ * doesn't dispose the embedder and re-index every document.
+ */
+function embedSettingsKey(cfg: AppConfig): string {
+  const embed = getEmbedConfig(cfg);
+  if (embed.provider === 'local') {
+    return `local|${embed.model}|${cfg.model.localEmbed}`;
+  }
+  return `${embed.provider}|${embed.model}|${embed.apiKey}|${'baseUrl' in embed ? (embed.baseUrl ?? '') : ''}`;
+}
 
 process.on('uncaughtException', (error) => {
   console.error('[Main] Uncaught exception:', error);
@@ -636,6 +662,21 @@ app.whenReady().then(async () => {
   // ── Chat engine (lazy-loaded) ──
   const chatEngine = new ChatEngineProxy(createChatEngine(config, embedder, store));
 
+  // Hot-reload bookkeeping: only the latest reload may emit terminal events, and
+  // reloads are chained so two multi-GB models are never initialized at once.
+  let chatReloadGeneration = 0;
+  let chatReloadPromise: Promise<void> | null = null;
+
+  ipcMain.handle('chat:default-model-status', async () => {
+    const catalogEntry = CHAT_MODELS.find((m) => m.id === DEFAULT_CHAT_MODEL);
+    return {
+      modelId: DEFAULT_CHAT_MODEL,
+      label: catalogEntry?.label ?? DEFAULT_CHAT_MODEL,
+      size: catalogEntry?.size ?? '',
+      downloaded: await modelExists(DEFAULT_CHAT_MODEL),
+    };
+  });
+
   ipcMain.handle('chat:init', async () => {
     await chatEngine.initialize((downloaded, total) => {
       mainWindow?.webContents.send('setup:progress', {
@@ -680,6 +721,11 @@ app.whenReady().then(async () => {
   ipcMain.handle('config:get', () => config);
 
   ipcMain.handle('config:save', async (_event, updates: Partial<AppConfig>) => {
+    // Snapshot chat/embed-relevant settings BEFORE mutating `config` so we only
+    // reload engines when something they depend on actually changed.
+    const prevChatKey = chatSettingsKey(config);
+    const prevEmbedKey = embedSettingsKey(config);
+
     const newConfig: AppConfig = {
       ...config,
       ...updates,
@@ -706,8 +752,8 @@ app.whenReady().then(async () => {
       }
     }
 
-    // Hot-reload chat engine: swap to new engine when chat config or local model changes
-    const chatChanged = updates.chat !== undefined || updates.model?.localChat !== undefined;
+    // Hot-reload chat engine: swap to new engine only when chat-relevant settings changed
+    const chatChanged = chatSettingsKey(config) !== prevChatKey;
     if (chatChanged) {
       const newInner = createChatEngine(config, embedder, store);
       const chatCfg = getChatConfig(config);
@@ -715,30 +761,53 @@ app.whenReady().then(async () => {
         // Remote: initialize is instant, then swap
         await newInner.initialize();
         await chatEngine.swap(newInner);
+        mainWindow?.webContents.send('chat:model-state', { state: 'ready' });
         console.log('[Settings] Chat engine hot-reloaded (remote)');
       } else if (config.model.localChat) {
-        // Local: swap first (disposes old), then initialize in background
-        await chatEngine.swap(newInner);
-        newInner.initialize((downloaded, total) => {
-          mainWindow?.webContents.send('setup:progress', {
-            phase: 'chat',
-            modelId: config.model.localChat,
-            modelLabel: 'Chat model',
-            downloaded,
-            total,
+        // Local: tell the renderer we're reloading, dispose the old engine, then
+        // initialize the new one in the background (don't block the save response).
+        mainWindow?.webContents.send('chat:model-state', { state: 'reloading' });
+        const generation = ++chatReloadGeneration;
+        const previousReload = chatReloadPromise;
+        chatReloadPromise = (async () => {
+          // Chain behind any in-flight reload so two chat models are never loaded at once
+          if (previousReload) await previousReload.catch(() => {});
+          await chatEngine.swap(newInner);
+          await newInner.initialize((downloaded, total) => {
+            mainWindow?.webContents.send('setup:progress', {
+              phase: 'chat',
+              modelId: config.model.localChat,
+              modelLabel: 'Chat model',
+              downloaded,
+              total,
+            });
           });
-        }).then(() => {
-          console.log('[Settings] Chat model hot-reloaded (local)');
-        }).catch((err) => {
-          console.error('[Settings] Failed to hot-reload chat model:', err);
-        });
+        })();
+        chatReloadPromise
+          .then(() => {
+            console.log('[Settings] Chat model hot-reloaded (local)');
+            if (generation !== chatReloadGeneration) return;
+            mainWindow?.webContents.send('chat:model-state', { state: 'ready' });
+            mainWindow?.webContents.send('config', {
+              dropFolder: config.watch.paths[0],
+              mcpPort: config.mcp.port,
+              chatConfigured: chatEngine.isConfigured(),
+            });
+          })
+          .catch((err) => {
+            console.error('[Settings] Failed to hot-reload chat model:', err);
+            if (generation !== chatReloadGeneration) return;
+            const message = err instanceof Error ? err.message : String(err);
+            mainWindow?.webContents.send('chat:model-state', { state: 'error', message });
+          });
       } else {
+        // Chat disabled — just swap in the unconfigured engine
         await chatEngine.swap(newInner);
       }
     }
 
-    // Hot-reload embed model: dispose old, create new, swap in-place
-    const embedChanged = updates.embed !== undefined || !!updates.model?.localEmbed;
+    // Hot-reload embed model only when embed-relevant settings changed
+    const embedChanged = embedSettingsKey(config) !== prevEmbedKey;
     if (embedChanged) {
       // Run in background so the IPC call returns immediately (un-sticks "Saving…")
       (async () => {
@@ -748,12 +817,13 @@ app.whenReady().then(async () => {
             await new Promise((r) => setTimeout(r, 50));
           }
 
+          const embedModelLabel = config.embed?.model ?? config.model.localEmbed;
           const newInner = createEmbedder(config);
           await newInner.initialize((downloaded, total) => {
             mainWindow?.webContents.send('setup:progress', {
               phase: 'embed',
-              modelId: 'embed',
-              modelLabel: 'Embedding model',
+              modelId: embedModelLabel,
+              modelLabel: embedModelLabel,
               downloaded,
               total,
             });
@@ -774,6 +844,8 @@ app.whenReady().then(async () => {
           indexer.scanAll(config.watch.paths).catch(console.error);
         } catch (err) {
           console.error('[Settings] Failed to hot-reload embed model:', err);
+          const message = err instanceof Error ? err.message : String(err);
+          mainWindow?.webContents.send('model:error', { error: message });
         }
       })();
     }

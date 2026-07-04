@@ -16,7 +16,7 @@ export async function executeSearchDocuments(
     };
   }
 
-  const queryVector = await embedder.getEmbedding(args.query);
+  const queryVector = await embedder.embedQuery(args.query);
   const results = await store.searchSimilar(queryVector, args.limit ?? 5, {
     folder: args.folder,
     fileType: args.file_type,

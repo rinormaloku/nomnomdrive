@@ -28,7 +28,7 @@ export function searchCommand(): Command {
 
       process.stdout.write('Searching…');
 
-      const vec = await embedder.getEmbedding(query);
+      const vec = await embedder.embedQuery(query);
       const limit = Math.max(1, parseInt(opts.limit, 10) || 5);
       const results = await store.searchSimilar(vec, limit, {
         folder: opts.folder,

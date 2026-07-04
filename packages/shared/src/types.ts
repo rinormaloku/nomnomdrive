@@ -41,6 +41,10 @@ export interface IndexingProgress {
   chunksTotal: number;
   queueLength: number;
   phase: 'parsing' | 'chunking' | 'embedding' | 'storing';
+  /** Files completed in the current indexing batch (resets when the queue drains). */
+  filesDone: number;
+  /** Total files enqueued in the current indexing batch. */
+  filesTotal: number;
 }
 
 export interface FolderSummary {

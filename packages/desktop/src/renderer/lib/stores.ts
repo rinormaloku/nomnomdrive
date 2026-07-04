@@ -15,6 +15,8 @@ export const syncProgress = writable<SyncProgress>({
   chunksProcessed: 0,
   chunksTotal: 0,
   queueLength: 0,
+  filesDone: 0,
+  filesTotal: 0,
 });
 export const processedFiles = writable<ProcessedFile[]>([]);
 
@@ -24,6 +26,10 @@ export const updateReady = writable(false);
 
 /** Non-null when the embedding model failed to load — blocks indexing. */
 export const modelError = writable<string | null>(null);
+
+/** Lifecycle of a chat model hot-swap triggered by a settings save. */
+export type ChatModelState = { state: 'idle' | 'reloading' | 'ready' | 'error'; message?: string };
+export const chatModelState = writable<ChatModelState>({ state: 'idle' });
 
 export const toastStore = writable<{ message: string; visible: boolean }>({
   message: '',

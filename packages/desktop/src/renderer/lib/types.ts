@@ -27,6 +27,8 @@ export type SyncProgress = {
   chunksProcessed: number;
   chunksTotal: number;
   queueLength: number;
+  filesDone: number;
+  filesTotal: number;
 };
 
 export type ProcessedFile = {

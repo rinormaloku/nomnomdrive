@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { showToast } from '../lib/stores';
+  import { showToast, setupProgress, syncActive, syncProgress, activeTab } from '../lib/stores';
   import { nomnom } from '../lib/nomnom';
   import EmbedForm from './settings/EmbedForm.svelte';
   import type { EmbedConfigValue, ChatConfigValue } from '../lib/types';
@@ -45,34 +45,50 @@
   let gpuRemoving = false;
   let gpuActiveBackend: string | null = null;
 
+  /** Load config from the main process and repopulate the form fields. */
+  async function refreshConfigForm() {
+    const cfg = (await nomnom.configGet()) as AppConfig;
+    appConfig = cfg;
+
+    // Populate form from config
+    embedValue = cfg.embed ?? { provider: 'local', model: cfg.model.localEmbed };
+    chatValue = cfg.chat ?? { provider: 'local', model: cfg.model.localChat ?? '' };
+
+    // Determine if chat is enabled (not the disabled state)
+    const isDisabled = chatValue.provider === 'local' && !chatValue.model;
+    chatEnabled = !isDisabled;
+    if (chatEnabled) {
+      lastChatValue = { ...chatValue };
+    } else {
+      // Default restore value
+      lastChatValue = { provider: 'local', model: chatCatalog[0]?.id ?? '' };
+    }
+
+    watchPaths = [...cfg.watch.paths];
+    mcpPort = cfg.mcp.port;
+  }
+
+  // Re-sync the form whenever the settings tab becomes active — the config can
+  // change elsewhere while the app runs (e.g. "Enable Chat" in the Chat tab).
+  let lastActiveTab = '';
+  $: {
+    if ($activeTab === 'settings' && lastActiveTab !== 'settings' && !loading && !saving) {
+      refreshConfigForm().catch(() => {});
+    }
+    lastActiveTab = $activeTab;
+  }
+
   onMount(async () => {
     try {
-      const [cfg, catalog, loginSetting] = await Promise.all([
-        nomnom.configGet() as Promise<AppConfig>,
+      const [catalog, loginSetting] = await Promise.all([
         nomnom.setupGetCatalog(),
         nomnom.getOpenAtLogin(),
       ]);
-      appConfig = cfg;
       embedCatalog = catalog.embedModels;
       chatCatalog = catalog.chatModels;
       openAtLogin = loginSetting;
 
-      // Populate form from config
-      embedValue = cfg.embed ?? { provider: 'local', model: cfg.model.localEmbed };
-      chatValue = cfg.chat ?? { provider: 'local', model: cfg.model.localChat ?? '' };
-
-      // Determine if chat is enabled (not the disabled state)
-      const isDisabled = chatValue.provider === 'local' && !chatValue.model;
-      chatEnabled = !isDisabled;
-      if (chatEnabled) {
-        lastChatValue = { ...chatValue };
-      } else {
-        // Default restore value
-        lastChatValue = { provider: 'local', model: chatCatalog[0]?.id ?? '' };
-      }
-
-      watchPaths = [...cfg.watch.paths];
-      mcpPort = cfg.mcp.port;
+      await refreshConfigForm();
 
       // Load GPU status
       const [gpuStatus, detected, activeBackend] = await Promise.all([
@@ -143,6 +159,24 @@
     }
   }
 
+  // Embed model download / re-indexing status (mirrors the FilesTab banners)
+  $: embedDownloading =
+    $setupProgress.phase === 'embed' &&
+    $setupProgress.total > 0 &&
+    $setupProgress.downloaded < $setupProgress.total;
+  $: chatDownloading =
+    $setupProgress.phase === 'chat' &&
+    $setupProgress.total > 0 &&
+    $setupProgress.downloaded < $setupProgress.total;
+  $: downloadPct =
+    $setupProgress.total > 0
+      ? Math.floor(($setupProgress.downloaded / $setupProgress.total) * 100)
+      : 0;
+  $: reindexLabel =
+    $syncProgress.filesTotal > 0
+      ? `Re-indexing ${Math.min($syncProgress.filesDone + 1, $syncProgress.filesTotal)} of ${$syncProgress.filesTotal}…`
+      : 'Re-indexing…';
+
   async function save() {
     if (!appConfig) return;
     saving = true;
@@ -163,7 +197,7 @@
 
       const result = await nomnom.configSave(updates);
       if (embedChanged) {
-        showToast('Settings saved — downloading new model and re-indexing all documents. This may take a while.', 6000);
+        showToast('Settings saved — downloading new model and re-indexing all documents.', 4000);
       } else if (result.restartRequired) {
         showToast('Settings saved — restart to apply changes', 4000);
       } else {
@@ -277,6 +311,28 @@
     </div>
 
     <div class="settings-footer">
+      {#if embedDownloading}
+        <div class="footer-status">
+          <div class="footer-status-bar-wrap">
+            <div class="footer-status-bar" style="width: {downloadPct}%"></div>
+          </div>
+          <span class="footer-status-text">
+            Downloading embedding model {$setupProgress.modelLabel}… {downloadPct}%
+          </span>
+        </div>
+      {:else if chatDownloading}
+        <div class="footer-status">
+          <div class="footer-status-bar-wrap">
+            <div class="footer-status-bar" style="width: {downloadPct}%"></div>
+          </div>
+          <span class="footer-status-text">Downloading chat model… {downloadPct}%</span>
+        </div>
+      {:else if $syncActive}
+        <div class="footer-status">
+          <div class="footer-status-spinner"></div>
+          <span class="footer-status-text">{reindexLabel}</span>
+        </div>
+      {/if}
       <button class="btn primary" onclick={save} disabled={saving}>
         {saving ? 'Saving...' : 'Save'}
       </button>
@@ -439,11 +495,54 @@
 
   .settings-footer {
     display: flex;
+    align-items: center;
     justify-content: flex-end;
     gap: 8px;
     padding: 12px 18px;
     border-top: 1px solid var(--border);
     flex-shrink: 0;
+  }
+
+  .footer-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: auto;
+    min-width: 0;
+  }
+
+  .footer-status-text {
+    font-size: 11px;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .footer-status-bar-wrap {
+    flex-shrink: 0;
+    width: 90px;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--bg3);
+    overflow: hidden;
+  }
+
+  .footer-status-bar {
+    height: 100%;
+    border-radius: 3px;
+    background: var(--accent);
+    transition: width 0.3s ease;
+  }
+
+  .footer-status-spinner {
+    flex-shrink: 0;
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--bg3);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
   }
 
   .btn {

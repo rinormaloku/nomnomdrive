@@ -35,6 +35,12 @@
     $syncProgress.chunksTotal > 0
       ? `${$syncProgress.chunksProcessed}/${$syncProgress.chunksTotal} chunks`
       : $syncProgress.phase + '…';
+
+  $: currentFileNumber = Math.min($syncProgress.filesDone + 1, $syncProgress.filesTotal);
+  $: overallPct =
+    $syncProgress.filesTotal > 0
+      ? Math.round(($syncProgress.filesDone / $syncProgress.filesTotal) * 100)
+      : 0;
 </script>
 
 <div class="sync-fullview">
@@ -70,6 +76,18 @@
       </g>
     </svg>
   </div>
+
+  {#if $syncProgress.filesTotal > 0}
+    <div class="sync-fv-overall">
+      <div class="sync-fv-overall-labels">
+        <span>File {currentFileNumber} of {$syncProgress.filesTotal}</span>
+        <span class="sync-fv-overall-pct">{overallPct}%</span>
+      </div>
+      <div class="sync-fv-overall-bar-wrap">
+        <div class="sync-fv-overall-bar" style="width: {overallPct}%"></div>
+      </div>
+    </div>
+  {/if}
 
   <div class="sync-fv-current">
     <div class="sync-fv-spinner"></div>
@@ -108,3 +126,40 @@
     </ul>
   </div>
 </div>
+
+<style>
+  .sync-fv-overall {
+    width: 100%;
+    max-width: 320px;
+    margin: 0 auto 14px;
+  }
+
+  .sync-fv-overall-labels {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .sync-fv-overall-pct {
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  .sync-fv-overall-bar-wrap {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--bg3, #e2e8f0);
+    overflow: hidden;
+  }
+
+  .sync-fv-overall-bar {
+    height: 100%;
+    border-radius: 3px;
+    background: var(--accent, #3b82f6);
+    transition: width 0.3s ease;
+  }
+</style>

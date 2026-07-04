@@ -100,7 +100,12 @@ export async function listHuggingFaceGgufFiles(repoId: string): Promise<GgufFile
 
 async function resolveHuggingFaceFilename(repoId: string): Promise<string> {
   const ggufFiles = await listHuggingFaceGgufFiles(repoId);
-  if (ggufFiles.length === 0) throw new Error(`No GGUF file found in HuggingFace repo: ${repoId}`);
+  if (ggufFiles.length === 0)
+    throw new Error(
+      `No GGUF file found in HuggingFace repo: ${repoId}. ` +
+        `This looks like a base model repo — use its GGUF variant instead ` +
+        `(usually a sibling repo ending in "-GGUF").`,
+    );
   if (ggufFiles.length === 1) return ggufFiles[0].filename;
 
   // Multiple GGUF files — pick the best default quant.

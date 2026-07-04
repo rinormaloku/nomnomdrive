@@ -975,21 +975,25 @@ body {
 .mcp-cloud-promo {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   margin: 4px 14px 12px;
-  padding: 8px 10px;
-  background: var(--accent-light, #e8f0ff);
-  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  padding: 10px 12px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+  border: none;
   border-radius: var(--radius);
-  color: var(--accent);
-  font-size: 11.5px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
   width: calc(100% - 28px);
   text-align: left;
-  transition: background var(--transition);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition), box-shadow var(--transition), filter var(--transition);
 }
 .mcp-cloud-promo:hover {
-  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 35%, transparent);
+  filter: brightness(1.03);
 }
 
 /* MCP scrollbar */
@@ -1337,7 +1341,7 @@ body {
 .cloud-connect-section {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
 }
 

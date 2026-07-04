@@ -1,4 +1,5 @@
-import { config, documents, processedFiles, stats, syncActive, syncProgress, updateReady, setupStatus, setupProgress, setupGpuFailed, modelError } from './stores';
+import { config, documents, processedFiles, stats, syncActive, syncProgress, updateReady, setupStatus, setupProgress, setupGpuFailed, modelError, chatModelState } from './stores';
+import type { ChatModelState } from './stores';
 import { basename } from './utils';
 import type { Document, SetupStatusData, SetupProgressData, ModelOption, SetupCatalog } from './types';
 
@@ -12,6 +13,8 @@ declare global {
           chunksTotal: number;
           phase: string;
           queueLength?: number;
+          filesDone?: number;
+          filesTotal?: number;
         }) => void,
       ) => void;
       onIndexingComplete: (cb: (data: { filePath: string; chunkCount: number }) => void) => void;
@@ -57,6 +60,13 @@ declare global {
       chatInit: () => Promise<{ ready: boolean }>;
       chatSend: (message: string) => Promise<string>;
       chatReset: () => Promise<void>;
+      chatDefaultModelStatus: () => Promise<{
+        modelId: string;
+        label: string;
+        size: string;
+        downloaded: boolean;
+      }>;
+      onChatModelState: (cb: (data: ChatModelState) => void) => void;
       onUpdateAvailable: (cb: (info: { version: string }) => void) => void;
       onUpdateDownloaded: (cb: () => void) => void;
       installUpdate: () => void;
@@ -87,6 +97,24 @@ declare global {
 
 let idleDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 let lastProgressFile = '';
+
+/** Reset embed download progress so download banners hide once the model is ready or has failed. */
+function clearEmbedDownloadProgress() {
+  setupProgress.update((p) =>
+    p.phase === 'embed'
+      ? { phase: '', modelId: '', modelLabel: '', downloaded: 0, total: 0 }
+      : p,
+  );
+}
+
+/** Reset chat download progress so download banners hide once the chat model is ready or has failed. */
+function clearChatDownloadProgress() {
+  setupProgress.update((p) =>
+    p.phase === 'chat'
+      ? { phase: '', modelId: '', modelLabel: '', downloaded: 0, total: 0 }
+      : p,
+  );
+}
 
 function refreshDocs() {
   window.nomnom.getDocuments().then((docs) => documents.set(docs));
@@ -122,6 +150,8 @@ export function initNomnom() {
       chunksProcessed: data.chunksProcessed,
       chunksTotal: data.chunksTotal,
       queueLength: data.queueLength || 0,
+      filesDone: data.filesDone ?? 0,
+      filesTotal: data.filesTotal ?? 0,
     });
   });
 
@@ -157,10 +187,19 @@ export function initNomnom() {
 
   window.nomnom.onModelReady(() => {
     modelError.set(null);
+    clearEmbedDownloadProgress();
+  });
+
+  window.nomnom.onChatModelState((data) => {
+    chatModelState.set(data);
+    if (data.state === 'ready' || data.state === 'error') {
+      clearChatDownloadProgress();
+    }
   });
 
   window.nomnom.onModelError(({ error }) => {
     modelError.set(error);
+    clearEmbedDownloadProgress();
   });
 
   window.nomnom.onUpdateDownloaded(() => {
@@ -194,6 +233,7 @@ export const nomnom = {
   chatInit: () => window.nomnom.chatInit(),
   chatSend: (msg: string) => window.nomnom.chatSend(msg),
   chatReset: () => window.nomnom.chatReset(),
+  chatDefaultModelStatus: () => window.nomnom.chatDefaultModelStatus(),
   setupCheck: () => window.nomnom.setupCheck(),
   setupGetCatalog: () => window.nomnom.setupGetCatalog(),
   setupStart: (options: { watchPath: string; embedModelId: string; embedConfig?: unknown; chatModelId: string; chatConfig?: unknown; mcpPort: number; gpuType?: string }) =>

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { syncActive, modelError, activeTab, showToast } from '../lib/stores';
+  import { syncActive, modelError, activeTab, showToast, setupProgress } from '../lib/stores';
   import { nomnom } from '../lib/nomnom';
   import SyncFullView from './SyncFullView.svelte';
   import SyncBanner from './SyncBanner.svelte';
@@ -7,6 +7,19 @@
 
   let dragging = $state(false);
   let dragCounter = 0;
+
+  const embedDownloading = $derived(
+    $setupProgress.phase === 'embed' &&
+      $setupProgress.total > 0 &&
+      $setupProgress.downloaded < $setupProgress.total,
+  );
+  const downloadPct = $derived(
+    $setupProgress.total > 0
+      ? Math.floor(($setupProgress.downloaded / $setupProgress.total) * 100)
+      : 0,
+  );
+  const downloadedMB = $derived(($setupProgress.downloaded / (1024 * 1024)).toFixed(1));
+  const totalMB = $derived(($setupProgress.total / (1024 * 1024)).toFixed(1));
 
   function onDragEnter(e: DragEvent) {
     e.preventDefault();
@@ -89,6 +102,20 @@
     </div>
   {/if}
 
+  {#if embedDownloading}
+    <div class="model-download">
+      <div class="model-download-header">
+        <span class="model-download-title">
+          Downloading embedding model {$setupProgress.modelLabel}…
+        </span>
+        <span class="model-download-detail">{downloadedMB} / {totalMB} MB ({downloadPct}%)</span>
+      </div>
+      <div class="model-download-bar-wrap">
+        <div class="model-download-bar" style="width: {downloadPct}%"></div>
+      </div>
+    </div>
+  {/if}
+
   {#if $syncActive}
     <SyncFullView />
   {:else}
@@ -143,6 +170,52 @@
     font-weight: 500;
     color: var(--text);
     margin: 0;
+  }
+
+  .model-download {
+    margin: 10px 16px;
+    padding: 10px 12px;
+    background: var(--bg2, #f8fafc);
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: var(--radius-sm, 6px);
+  }
+
+  .model-download-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+
+  .model-download-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .model-download-detail {
+    flex-shrink: 0;
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+
+  .model-download-bar-wrap {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--bg3, #e2e8f0);
+    overflow: hidden;
+  }
+
+  .model-download-bar {
+    height: 100%;
+    border-radius: 3px;
+    background: var(--accent, #3b82f6);
+    transition: width 0.3s ease;
   }
 
   .model-error {

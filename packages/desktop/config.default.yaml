@@ -6,8 +6,8 @@ watch:
   glob: "**/*"
 
 model:
-  local_embed: "hf:Qwen/Qwen3-Embedding-0.6B-GGUF"
-  local_chat: "hf:unsloth/Qwen3-0.6B-GGUF"
+  local_embed: "hf:jinaai/jina-embeddings-v5-text-nano-retrieval-GGUF/v5-nano-retrieval-Q8_0.gguf"
+  local_chat: "hf:unsloth/gemma-3-4b-it-GGUF/gemma-3-4b-it-Q4_K_M.gguf"
 
 mcp:
   port: 23847

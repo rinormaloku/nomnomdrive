@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { activeTab, config, setupProgress } from '../lib/stores';
+  import { activeTab, config, setupProgress, chatModelState } from '../lib/stores';
+  import type { ChatModelState } from '../lib/stores';
   import { nomnom } from '../lib/nomnom';
   import { renderMarkdown } from '../lib/markdown';
   import { MessageSquare, MessageSquareText, Sparkles, ArrowUp } from 'lucide-svelte';
@@ -29,6 +30,32 @@
   let messagesEl: HTMLDivElement;
   let inputEl: HTMLInputElement;
 
+  // "Enable Chat" one-click flow state (not-configured empty state)
+  type DefaultModelStatus = { modelId: string; label: string; size: string; downloaded: boolean };
+  let defaultModelStatus: DefaultModelStatus | null = null;
+  let enabling = false;
+
+  // Chat model hot-swap state (settings save / Enable Chat)
+  $: reloading = $chatModelState.state === 'reloading';
+  $: handleModelState($chatModelState);
+
+  function handleModelState(s: ChatModelState) {
+    if (s.state === 'ready') {
+      chatModelState.set({ state: 'idle' });
+      // New engine is loaded — re-run init so the session uses the new model
+      initialized = false;
+      hasTriedInit = false;
+      loadError = '';
+      enabling = false;
+    } else if (s.state === 'error') {
+      chatModelState.set({ state: 'idle' });
+      initialized = false;
+      hasTriedInit = true; // don't auto-retry a failing model
+      loadError = 'Failed to load chat model: ' + (s.message ?? 'Unknown error');
+      enabling = false;
+    }
+  }
+
   // Lazy-init when chat tab first becomes active
   let hasTriedInit = false;
   let lastChatConfigured = $config.chatConfigured;
@@ -39,12 +66,37 @@
     initialized = false;
     loadError = '';
   }
-  $: if ($activeTab === 'chat' && !initialized && !initializing && !hasTriedInit) {
+  $: if ($activeTab === 'chat' && !initialized && !initializing && !hasTriedInit && !reloading) {
     hasTriedInit = true;
     if (!$config.chatConfigured) {
       loadError = '__not_configured__';
     } else {
       doInit();
+    }
+  }
+
+  // When the not-configured state shows, check whether the default model is already on disk
+  $: if (loadError === '__not_configured__' && !defaultModelStatus) {
+    nomnom
+      .chatDefaultModelStatus()
+      .then((s) => (defaultModelStatus = s))
+      .catch(() => {});
+  }
+
+  async function enableChat() {
+    if (!defaultModelStatus || enabling) return;
+    enabling = true;
+    try {
+      // Partial update: config:save merges `model` with the existing keys, so
+      // localEmbed / watch / mcp are untouched. The save triggers the normal
+      // chat hot-reload path in the main process (reloading → download → ready).
+      await nomnom.configSave({
+        chat: { provider: 'local', model: defaultModelStatus.modelId },
+        model: { localChat: defaultModelStatus.modelId },
+      });
+    } catch (e: unknown) {
+      enabling = false;
+      loadError = 'Failed to enable chat: ' + (e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -93,7 +145,7 @@
 
   async function sendMessage() {
     const text = inputValue.trim();
-    if (!text || busy || !initialized) return;
+    if (!text || busy || !initialized || reloading) return;
 
     busy = true;
     inputValue = '';
@@ -122,7 +174,7 @@
   }
 
   async function resetChat() {
-    if (busy) return;
+    if (busy || reloading) return;
     await nomnom.chatReset();
     messages = [];
     inputEl?.focus();
@@ -160,7 +212,7 @@
 
 {#if !initialized && !loadError}
   <div class="chat-loading">
-    {#if initializing}
+    {#if initializing || reloading}
       <div class="chat-loading-spinner"></div>
     {/if}
     {#if chatDownloading}
@@ -169,6 +221,8 @@
         <div class="chat-progress-bar" style="width: {chatProgressPct}%"></div>
       </div>
       <span class="chat-progress-text">{chatProgressMB} / {chatTotalMB} MB ({chatProgressPct}%)</span>
+    {:else if reloading}
+      <span>Preparing chat model...</span>
     {:else}
       <span>{initializing ? 'Loading chat model...' : 'Switch to Chat tab to load model'}</span>
     {/if}
@@ -180,13 +234,33 @@
     </span>
     <h3 class="chat-empty-title">Chat is not enabled</h3>
     <p class="chat-empty-desc">
-      To chat with your documents, enable a chat model in Settings.
-      For the best local experience, use <strong>Qwen3-8B</strong> (~5 GB).
-      If you don't have the resources, use an OpenAI-compatible API instead.
+      Chat runs a local model against your indexed documents.
+      {#if defaultModelStatus?.downloaded}
+        <strong>{defaultModelStatus.label}</strong> is already downloaded — enable chat to start
+        asking questions.
+      {:else if defaultModelStatus}
+        Enabling chat downloads <strong>{defaultModelStatus.label}</strong> ({defaultModelStatus.size})
+        and runs it on this machine. Prefer another model or an OpenAI-compatible API? Pick one in
+        Settings.
+      {/if}
     </p>
     <div class="chat-empty-actions">
-      <button class="chat-empty-btn primary" onclick={() => activeTab.set('settings')}>Open Settings</button>
-      <button class="chat-empty-btn secondary" onclick={() => activeTab.set('mcp')}>Learn about MCP</button>
+      <button
+        class="chat-empty-btn primary"
+        onclick={enableChat}
+        disabled={enabling || !defaultModelStatus}
+      >
+        {#if enabling}
+          Enabling...
+        {:else if defaultModelStatus && !defaultModelStatus.downloaded}
+          Enable Chat — downloads {defaultModelStatus.label} ({defaultModelStatus.size})
+        {:else}
+          Enable Chat
+        {/if}
+      </button>
+      <button class="chat-empty-btn secondary" onclick={() => activeTab.set('settings')}>
+        Choose a different model in Settings
+      </button>
     </div>
   </div>
 {:else if loadError}
@@ -195,6 +269,25 @@
   </div>
 {:else}
   <div class="chat-container">
+    {#if reloading}
+      <div class="chat-reload-banner">
+        <div class="chat-reload-row">
+          <div class="chat-loading-spinner chat-reload-spinner"></div>
+          <span>
+            {#if chatDownloading}
+              Switching chat model... downloading {chatProgressPct}% ({chatProgressMB} / {chatTotalMB} MB)
+            {:else}
+              Switching chat model...
+            {/if}
+          </span>
+        </div>
+        {#if chatDownloading}
+          <div class="chat-progress-wrap chat-reload-progress">
+            <div class="chat-progress-bar" style="width: {chatProgressPct}%"></div>
+          </div>
+        {/if}
+      </div>
+    {/if}
     <div class="chat-messages" bind:this={messagesEl}>
       {#if messages.length === 0}
         <div class="chat-welcome">
@@ -248,16 +341,17 @@
         class="chat-input"
         bind:value={inputValue}
         bind:this={inputEl}
-        placeholder="Ask about your docs..."
+        placeholder={reloading ? 'Switching chat model...' : 'Ask about your docs...'}
         autocomplete="off"
+        disabled={reloading}
         onkeydown={onKeydown}
       />
-      <button class="chat-send-btn" disabled={busy} onclick={sendMessage} title="Send">
+      <button class="chat-send-btn" disabled={busy || reloading} onclick={sendMessage} title="Send">
         <ArrowUp size={14} />
       </button>
     </div>
 
-    <button class="chat-reset-btn" onclick={resetChat} disabled={busy}>New Chat</button>
+    <button class="chat-reset-btn" onclick={resetChat} disabled={busy || reloading}>New Chat</button>
   </div>
 {/if}
 
@@ -343,6 +437,35 @@
     font-size: 11px;
     color: var(--text-secondary);
     font-variant-numeric: tabular-nums;
+  }
+
+  .chat-reload-banner {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 14px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+  }
+
+  .chat-reload-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .chat-reload-spinner {
+    width: 12px;
+    height: 12px;
+    border-width: 2px;
+  }
+
+  .chat-reload-progress {
+    width: 100%;
+    margin-top: 0;
   }
 
   .chat-empty-state {

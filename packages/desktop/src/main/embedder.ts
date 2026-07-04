@@ -1,13 +1,17 @@
 import type { AppConfig } from './config';
-import { getEmbedConfig } from '@nomnomdrive/shared';
+import { getEmbedConfig, getEmbedPrefixes } from '@nomnomdrive/shared';
 import { resolveModelPath } from './models';
-import type { EmbedConfig } from '@nomnomdrive/shared';
+import type { EmbedConfig, EmbedPrefixes } from '@nomnomdrive/shared';
 import { getInstalledGpuType } from './gpu-manager';
 
 export interface IEmbedder {
   initialize(onProgress?: (downloaded: number, total: number) => void): Promise<void>;
+  /** Embed a document passage (applies the model's document prefix, if any). */
   getEmbedding(text: string): Promise<number[]>;
+  /** Embed document passages (applies the model's document prefix, if any). */
   getEmbeddings(texts: string[]): Promise<number[][]>;
+  /** Embed a search query (applies the model's query prefix, if any). */
+  embedQuery(text: string): Promise<number[]>;
   isReady(): boolean;
   getDims(): number;
   /** Returns the active GPU backend ('metal', 'cuda', 'vulkan') or false for CPU. */
@@ -40,16 +44,23 @@ export class LocalEmbedder implements IEmbedder {
   private dims: number | null = null;
   private gpuBackend: string | false = false;
   private readonly config: AppConfig;
+  /** Asymmetric retrieval prefixes required by the configured model (empty for most models). */
+  private readonly prefixes: EmbedPrefixes;
   /** Resolves when the model is ready; null if initialize() has not been called. */
   private readyPromise: Promise<void> | null = null;
 
   constructor(config: AppConfig) {
     this.config = config;
+    this.prefixes = getEmbedPrefixes(this.resolveModelId());
+  }
+
+  private resolveModelId(): string {
+    const embedCfg = getEmbedConfig(this.config);
+    return embedCfg.provider === 'local' ? embedCfg.model : this.config.model.localEmbed;
   }
 
   async initialize(onProgress?: (downloaded: number, total: number) => void): Promise<void> {
-    const embedCfg = getEmbedConfig(this.config);
-    const modelId = embedCfg.provider === 'local' ? embedCfg.model : this.config.model.localEmbed;
+    const modelId = this.resolveModelId();
     this.readyPromise = (async () => {
       this.modelPath = await resolveModelPath(modelId, onProgress);
 
@@ -73,14 +84,15 @@ export class LocalEmbedder implements IEmbedder {
       console.log(`[Embedder] GPU backend: ${this.gpuBackend || 'CPU'}`);
       this.model = await this.llama.loadModel({ modelPath: this.modelPath });
       this.context = await this.model.createEmbeddingContext();
-      // Probe actual output dims so callers can validate against the DB schema
-      const probe = await this.context.getEmbeddingFor('test');
+      // Probe actual output dims so callers can validate against the DB schema.
+      // Use the document-prefixed path so the probe matches real usage.
+      const probe = await this.context.getEmbeddingFor(this.prefixes.document + 'test');
       this.dims = probe.vector.length;
     })();
     return this.readyPromise;
   }
 
-  async getEmbedding(text: string): Promise<number[]> {
+  private async embedRaw(text: string): Promise<number[]> {
     // If the model is still loading, wait for it instead of failing immediately.
     if (!this.context) {
       if (!this.readyPromise) throw new Error('Embedder not initialized');
@@ -90,12 +102,20 @@ export class LocalEmbedder implements IEmbedder {
     return Array.from(result.vector);
   }
 
+  async getEmbedding(text: string): Promise<number[]> {
+    return this.embedRaw(this.prefixes.document + text);
+  }
+
   async getEmbeddings(texts: string[]): Promise<number[][]> {
     const results: number[][] = [];
     for (const text of texts) {
       results.push(await this.getEmbedding(text));
     }
     return results;
+  }
+
+  async embedQuery(text: string): Promise<number[]> {
+    return this.embedRaw(this.prefixes.query + text);
   }
 
   isReady(): boolean {
@@ -193,6 +213,11 @@ export class RemoteEmbedder implements IEmbedder {
     return results;
   }
 
+  async embedQuery(text: string): Promise<number[]> {
+    // Remote embedding models are symmetric — no query/document prefixes.
+    return this.getEmbedding(text);
+  }
+
   isReady(): boolean {
     return this.ready;
   }
@@ -235,6 +260,9 @@ export class EmbedderProxy implements IEmbedder {
   }
   getEmbeddings(texts: string[]): Promise<number[][]> {
     return this.inner.getEmbeddings(texts);
+  }
+  embedQuery(text: string): Promise<number[]> {
+    return this.inner.embedQuery(text);
   }
   isReady(): boolean {
     return this.inner.isReady();
