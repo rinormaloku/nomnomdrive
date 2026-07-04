@@ -267,7 +267,14 @@
             <div class="setting-label-group">
               <span class="setting-label">GPU acceleration</span>
               {#if gpuActiveBackend}
-                <span class="setting-hint">Running on <strong>{gpuActiveBackend.toUpperCase()}</strong></span>
+                {#if gpuInstalled && gpuActiveBackend.toLowerCase() !== gpuInstalled.toLowerCase()}
+                  <span class="setting-hint warn">
+                    {gpuInstalled.toUpperCase()} is installed, but running on
+                    <strong>{gpuActiveBackend.toUpperCase()}</strong>
+                  </span>
+                {:else}
+                  <span class="setting-hint">Running on <strong>{gpuActiveBackend.toUpperCase()}</strong></span>
+                {/if}
               {/if}
             </div>
             {#if gpuInstalled}
@@ -583,6 +590,14 @@
 
   .setting-hint strong {
     color: var(--green);
+  }
+
+  .setting-hint.warn {
+    color: var(--yellow);
+  }
+
+  .setting-hint.warn strong {
+    color: var(--yellow);
   }
 
   /* GPU inline (inside General card) */

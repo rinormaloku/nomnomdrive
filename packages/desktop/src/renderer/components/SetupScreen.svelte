@@ -6,6 +6,7 @@
   import EmbedForm from './settings/EmbedForm.svelte';
   import type { EmbedConfigValue, ChatConfigValue } from '../lib/types';
   import ChatModelForm from './settings/ChatModelForm.svelte';
+  import Bot from './Bot.svelte';
 
   type Step = 'loading' | 'welcome' | 'folder' | 'embed' | 'chat' | 'gpu' | 'downloading' | 'done' | 'error';
 
@@ -151,7 +152,7 @@
 
     {:else if step === 'welcome'}
       <div class="setup-center">
-        <div class="setup-logo">🍕</div>
+        <div class="setup-logo"><Bot size={72} shadow blink /></div>
         <h2 class="setup-title">Welcome to NomNomDrive</h2>
         <p class="setup-subtitle">
           Your local AI document search. Let's set up your models —

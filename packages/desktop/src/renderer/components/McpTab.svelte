@@ -168,7 +168,7 @@
   </div>
 
   <div class="mcp-divider"></div>
-  <div class="mcp-section-label">Manual Setup</div>
+  <div class="mcp-section-label">Manual setup — copy the snippet into the tool's MCP config</div>
 
   <!-- Claude Code -->
   <div class="mcp-client-card">

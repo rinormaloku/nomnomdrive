@@ -4,9 +4,12 @@
   import SyncFullView from './SyncFullView.svelte';
   import SyncBanner from './SyncBanner.svelte';
   import FileTree from './FileTree.svelte';
+  import Bot from './Bot.svelte';
 
   let dragging = $state(false);
   let dragCounter = 0;
+  let nomming = $state(false);
+  let nomTimer: ReturnType<typeof setTimeout> | null = null;
 
   const embedDownloading = $derived(
     $setupProgress.phase === 'embed' &&
@@ -60,15 +63,21 @@
     }
     if (paths.length === 0) return;
 
+    // Let the mascot chomp while the files are copied into the watch folder
+    nomming = true;
+    if (nomTimer) clearTimeout(nomTimer);
+    nomTimer = setTimeout(() => (nomming = false), 1200);
+
     const res = await nomnom.copyToWatchFolder(paths);
     if (!res.success) {
+      nomming = false;
       showToast(res.error ?? 'Copy failed');
     } else {
       const errors = res.results?.filter((r) => r.error) ?? [];
       if (errors.length > 0) {
         showToast(`${paths.length - errors.length} copied, ${errors.length} failed`);
       } else {
-        showToast(`${paths.length} item${paths.length > 1 ? 's' : ''} copied`);
+        showToast(`Nom! ${paths.length} ${paths.length > 1 ? 'files' : 'file'} gobbled up`);
       }
     }
   }
@@ -83,10 +92,17 @@
   ondragover={onDragOver}
   ondrop={onDrop}
 >
-  {#if dragging}
+  {#if dragging || nomming}
     <div class="drop-overlay">
-      <div class="drop-icon">+</div>
-      <p class="drop-text">Drop files or folders to import</p>
+      <div class="drop-bot" class:bot-eating={nomming}>
+        <Bot size={130} ring={false} mouth={nomming ? 'chomp' : 'open'} papers={nomming} shadow />
+      </div>
+      {#if nomming}
+        <p class="drop-text">Nom nom nom!</p>
+      {:else}
+        <p class="drop-text">Drop it! I'm hungry</p>
+        <p class="drop-subtext">Files land in your NomNomDrive folder and get indexed</p>
+      {/if}
     </div>
   {/if}
 
@@ -133,9 +149,9 @@
   }
 
   .drag-over {
-    outline: 2px dashed var(--accent, #3b82f6);
-    outline-offset: -4px;
-    border-radius: var(--radius-sm, 6px);
+    outline: 3px dashed var(--accent);
+    outline-offset: -6px;
+    border-radius: var(--radius);
   }
 
   .drop-overlay {
@@ -146,38 +162,61 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: color-mix(in srgb, var(--bg, #fff) 85%, var(--accent, #3b82f6));
-    border-radius: var(--radius-sm, 6px);
+    background: color-mix(in srgb, var(--bg) 88%, var(--accent));
+    border-radius: var(--radius);
     pointer-events: none;
   }
 
-  .drop-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: var(--accent, #3b82f6);
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 28px;
-    font-weight: 600;
-    margin-bottom: 8px;
+  .drop-bot {
+    /* Explicit size so the global .bot-eating (44px, sized for the banner bot)
+       can't collapse this container in the nomming state */
+    width: 130px;
+    height: 130px;
+    margin-bottom: 6px;
+    animation: drop-bob 0.9s ease-in-out infinite;
+  }
+
+  .drop-bot.bot-eating {
+    width: 130px;
+    height: 130px;
+    animation: none;
+  }
+
+  @keyframes drop-bob {
+    0%,
+    100% {
+      transform: translateY(0) rotate(-2deg);
+    }
+    50% {
+      transform: translateY(-10px) rotate(2deg);
+    }
   }
 
   .drop-text {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text);
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--accent);
     margin: 0;
+  }
+
+  .drop-subtext {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .drop-bot {
+      animation: none;
+    }
   }
 
   .model-download {
     margin: 10px 16px;
     padding: 10px 12px;
-    background: var(--bg2, #f8fafc);
-    border: 1px solid var(--border, #e2e8f0);
-    border-radius: var(--radius-sm, 6px);
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
   }
 
   .model-download-header {
@@ -207,14 +246,14 @@
   .model-download-bar-wrap {
     height: 6px;
     border-radius: 3px;
-    background: var(--bg3, #e2e8f0);
+    background: var(--bg3);
     overflow: hidden;
   }
 
   .model-download-bar {
     height: 100%;
     border-radius: 3px;
-    background: var(--accent, #3b82f6);
+    background: var(--accent);
     transition: width 0.3s ease;
   }
 
@@ -224,9 +263,9 @@
     gap: 10px;
     margin: 10px 16px;
     padding: 10px 12px;
-    background: var(--red-light, #fef2f2);
-    border: 1px solid var(--red, #ef4444);
-    border-radius: var(--radius-sm, 6px);
+    background: var(--red-light);
+    border: 1px solid var(--red);
+    border-radius: var(--radius-sm);
   }
 
   .model-error-icon {
@@ -234,7 +273,7 @@
     width: 22px;
     height: 22px;
     border-radius: 50%;
-    background: var(--red, #ef4444);
+    background: var(--red);
     color: #fff;
     display: flex;
     align-items: center;
@@ -258,7 +297,7 @@
 
   .model-error-detail {
     font-size: 11px;
-    color: var(--red, #ef4444);
+    color: var(--red);
     margin: 0 0 4px;
     word-break: break-word;
   }
@@ -273,8 +312,8 @@
     flex-shrink: 0;
     padding: 5px 12px;
     border: none;
-    border-radius: var(--radius-sm, 6px);
-    background: var(--red, #ef4444);
+    border-radius: var(--radius-sm);
+    background: var(--red);
     color: #fff;
     font-size: 11px;
     font-weight: 600;

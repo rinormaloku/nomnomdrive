@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <title>NomNomDrive</title>
 </head>
 <body>
@@ -30,7 +30,13 @@
         getDocuments: () => Promise.resolve(mockDocs),
         getStats: () => Promise.resolve({ fileCount: 6, chunkCount: 161 }),
         getCloudStatus: () => Promise.resolve({ mode: 'local', hasCredentials: false, serverUrl: null }),
-        configGet: () => Promise.resolve({ dropFolder: '/home/user/NomNomDrive', mcpPort: 23847, chatConfigured: true }),
+        configGet: () => Promise.resolve({
+          dropFolder: '/home/user/NomNomDrive', mcpPort: 23847, chatConfigured: true,
+          watch: { paths: ['/home/user/NomNomDrive'] },
+          model: { localEmbed: 'mock-embed.gguf', localChat: 'mock-chat.gguf' },
+          embed: { provider: 'local', model: 'mock-embed.gguf' },
+          chat: { provider: 'local', model: 'mock-chat.gguf' },
+        }),
         configSave: () => Promise.resolve(),
         openDropFolder: () => {},
         openExternalUrl: () => {},
@@ -40,9 +46,12 @@
         cloudLogin: () => Promise.resolve({ success: true }),
         cloudLogout: () => Promise.resolve(),
         registerMcpClient: (c) => Promise.resolve({ registered: true, client: c }),
-        chatInit: () => Promise.resolve(),
-        chatSend: () => Promise.resolve(),
+        chatInit: () => Promise.resolve({ ready: true }),
+        chatSend: () => Promise.resolve(''),
         chatReset: () => Promise.resolve(),
+        chatDefaultModelStatus: () => Promise.resolve({ modelId: 'mock', label: 'Mock model', size: '0 MB', downloaded: true }),
+        getOpenAtLogin: () => Promise.resolve(false),
+        setOpenAtLogin: () => Promise.resolve(),
         listGgufFiles: () => Promise.resolve([]),
         gpuDetect: () => Promise.resolve({ available: false }),
         gpuStatus: () => Promise.resolve({ installed: false }),
@@ -56,8 +65,8 @@
         onConfig: (cb) => { setTimeout(() => cb({ dropFolder: '/home/user/NomNomDrive', mcpPort: 23847, chatConfigured: true }), 50); },
         onSetupProgress: noop, onSetupComplete: noop,
         onSetupError: noop, onSetupGpuFailed: noop, onCloudStatusChanged: noop,
-        onChatChunk: noop, onChatToolCall: noop, onUpdateAvailable: noop,
-        onUpdateDownloaded: noop,
+        onChatChunk: noop, onChatToolCall: noop, onChatModelState: noop,
+        onUpdateAvailable: noop, onUpdateDownloaded: noop,
       };
     }
   </script>
