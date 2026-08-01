@@ -1,13 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { activeTab, setupStatus, cloudStatus, tunnelStatus } from './lib/stores';
+  import { activeView, setupStatus, cloudStatus, tunnelStatus } from './lib/stores';
   import { initNomnom, nomnom } from './lib/nomnom';
   import Header from './components/Header.svelte';
-  import TabBar from './components/TabBar.svelte';
-  import FilesTab from './components/FilesTab.svelte';
-  import ChatTab from './components/ChatTab.svelte';
-  import McpTab from './components/McpTab.svelte';
-  import CloudTab from './components/CloudTab.svelte';
+  import HomeView from './components/HomeView.svelte';
+  import ChatDrawer from './components/ChatDrawer.svelte';
   import StatusBar from './components/StatusBar.svelte';
   import Toast from './components/Toast.svelte';
   import SetupScreen from './components/SetupScreen.svelte';
@@ -48,23 +45,16 @@
   <SetupScreen />
 {:else}
   <Header />
-  <TabBar />
 
-  <div class="tab-content" class:active={$activeTab === 'files'} id="tab-files">
-    <FilesTab />
+  <!-- Both panes stay mounted so their reactive watchers keep running. -->
+  <div class="view-pane" class:active={$activeView === 'home'}>
+    <HomeView />
   </div>
-  <div class="tab-content" class:active={$activeTab === 'chat'} id="tab-chat">
-    <ChatTab />
-  </div>
-  <div class="tab-content" class:active={$activeTab === 'mcp'} id="tab-mcp">
-    <McpTab />
-  </div>
-  <div class="tab-content" class:active={$activeTab === 'cloud'} id="tab-cloud">
-    <CloudTab />
-  </div>
-  <div class="tab-content" class:active={$activeTab === 'settings'} id="tab-settings">
+  <div class="view-pane" class:active={$activeView === 'settings'}>
     <SettingsScreen />
   </div>
+
+  <ChatDrawer />
 
   <StatusBar />
   <Toast />

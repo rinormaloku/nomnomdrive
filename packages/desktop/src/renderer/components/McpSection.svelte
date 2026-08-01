@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { config, activeTab, cloudStatus } from '../lib/stores';
+  import { config, cloudStatus } from '../lib/stores';
   import { nomnom } from '../lib/nomnom';
   import { showToast } from '../lib/stores';
   import { Copy, Cloud, ChevronRight } from 'lucide-svelte';
@@ -107,11 +107,16 @@
     if (s === 'not-found') return 'mcp-install-btn not-found';
     return 'mcp-install-btn';
   }
-</script>
 
-<div class="mcp-intro">
-  <p>Connect NomNomDrive to your AI coding tools so they can search your documents.</p>
-</div>
+  // The cloud card lives further down the same home pane — scroll to it instead
+  // of navigating away.
+  function scrollToCloud() {
+    const el = document.getElementById('cloud-card');
+    if (!el) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+  }
+</script>
 
 <div class="mcp-clients-list">
   <!-- VS Code -->
@@ -260,7 +265,7 @@
       </button>
     </div>
   </div>
-  <button class="mcp-cloud-promo" onclick={() => activeTab.set('cloud')}>
+  <button class="mcp-cloud-promo" onclick={scrollToCloud}>
     <Cloud size={13} />
     Connect to cloud to access your data from any device or client
     <span style="margin-left: auto; flex-shrink: 0; display: inline-flex">

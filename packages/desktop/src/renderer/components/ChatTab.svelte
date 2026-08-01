@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
-  import { activeTab, config, setupProgress, chatModelState } from '../lib/stores';
+  import { activeView, chatOpen, config, setupProgress, chatModelState } from '../lib/stores';
   import type { ChatModelState } from '../lib/stores';
   import { nomnom } from '../lib/nomnom';
   import { renderMarkdown } from '../lib/markdown';
@@ -73,7 +73,13 @@
     }
   }
 
-  // Lazy-init when chat tab first becomes active
+  /** Leave the drawer so the settings screen isn't hidden behind it. */
+  function goToSettings() {
+    chatOpen.set(false);
+    activeView.set('settings');
+  }
+
+  // Lazy-init when the chat drawer first opens
   let hasTriedInit = false;
   let lastChatConfigured = $config.chatConfigured;
   $: if ($config.chatConfigured !== lastChatConfigured) {
@@ -83,7 +89,7 @@
     initialized = false;
     loadError = '';
   }
-  $: if ($activeTab === 'chat' && !initialized && !initializing && !hasTriedInit && !reloading) {
+  $: if ($chatOpen && !initialized && !initializing && !hasTriedInit && !reloading) {
     hasTriedInit = true;
     if (!$config.chatConfigured) {
       loadError = '__not_configured__';
@@ -342,7 +348,7 @@
     {:else if reloading}
       <span>Preparing chat model...</span>
     {:else}
-      <span>{initializing ? 'Loading chat model...' : 'Switch to Chat tab to load model'}</span>
+      <span>{initializing ? 'Loading chat model...' : 'Open the chat drawer to load model'}</span>
     {/if}
   </div>
 {:else if loadError === '__not_configured__'}
@@ -376,7 +382,7 @@
           Enable Chat
         {/if}
       </button>
-      <button class="chat-empty-btn secondary" onclick={() => activeTab.set('settings')}>
+      <button class="chat-empty-btn secondary" onclick={goToSettings}>
         Choose a different model in Settings
       </button>
     </div>

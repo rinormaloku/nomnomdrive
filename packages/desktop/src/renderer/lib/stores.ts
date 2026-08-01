@@ -15,7 +15,15 @@ export type CloudStatus = {
 export const cloudStatus = writable<CloudStatus | null>(null);
 /** Live tunnel connection state, pushed from main via `cloud:tunnel-status`. */
 export const tunnelStatus = writable<TunnelStatus>('disconnected');
-import type { Config, Document, ProcessedFile, Stats, SyncProgress, SetupStoreState, SetupProgressData } from './types';
+import type {
+  Config,
+  Document,
+  ProcessedFile,
+  Stats,
+  SyncProgress,
+  SetupStoreState,
+  SetupProgressData,
+} from './types';
 
 export const config = writable<Config>({ dropFolder: '', mcpPort: null, chatConfigured: false });
 export const documents = writable<Document[]>([]);
@@ -33,7 +41,11 @@ export const syncProgress = writable<SyncProgress>({
 });
 export const processedFiles = writable<ProcessedFile[]>([]);
 
-export const activeTab = writable<'files' | 'chat' | 'mcp' | 'cloud' | 'settings'>('files');
+/** Which top-level screen is showing. Tabs were replaced by a single home pane. */
+export const activeView = writable<'home' | 'settings'>('home');
+
+/** Whether the "Test it" chat slide-over drawer is open. */
+export const chatOpen = writable(false);
 
 export const updateReady = writable(false);
 

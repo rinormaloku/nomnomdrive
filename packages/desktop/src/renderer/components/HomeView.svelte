@@ -1,15 +1,27 @@
 <script lang="ts">
-  import { syncActive, modelError, activeTab, showToast, setupProgress } from '../lib/stores';
+  import {
+    syncActive,
+    modelError,
+    activeView,
+    showToast,
+    setupProgress,
+    stats,
+    documents,
+    config,
+  } from '../lib/stores';
   import { nomnom } from '../lib/nomnom';
   import SyncFullView from './SyncFullView.svelte';
-  import SyncBanner from './SyncBanner.svelte';
   import FileTree from './FileTree.svelte';
   import Bot from './Bot.svelte';
+  import McpSection from './McpSection.svelte';
+  import CloudCard from './CloudCard.svelte';
+  import { ChevronRight, FolderOpen } from 'lucide-svelte';
 
   let dragging = $state(false);
   let dragCounter = 0;
   let nomming = $state(false);
   let nomTimer: ReturnType<typeof setTimeout> | null = null;
+  let filesExpanded = $state(false);
 
   const embedDownloading = $derived(
     $setupProgress.phase === 'embed' &&
@@ -23,6 +35,8 @@
   );
   const downloadedMB = $derived(($setupProgress.downloaded / (1024 * 1024)).toFixed(1));
   const totalMB = $derived(($setupProgress.total / (1024 * 1024)).toFixed(1));
+
+  const hasDocuments = $derived($documents.length > 0);
 
   function onDragEnter(e: DragEvent) {
     e.preventDefault();
@@ -81,11 +95,15 @@
       }
     }
   }
+
+  function openFolder() {
+    if ($config.dropFolder) nomnom.openDropFolder($config.dropFolder);
+  }
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
-  class="files-tab"
+  class="home-view"
   class:drag-over={dragging}
   ondragenter={onDragEnter}
   ondragleave={onDragLeave}
@@ -106,44 +124,108 @@
     </div>
   {/if}
 
-  {#if $modelError}
-    <div class="model-error">
-      <div class="model-error-icon">!</div>
-      <div class="model-error-body">
-        <p class="model-error-title">Embedding model failed to load</p>
-        <p class="model-error-detail">{$modelError}</p>
-        <p class="model-error-hint">File indexing is paused. Check the model path in settings.</p>
-      </div>
-      <button class="model-error-btn" onclick={() => activeTab.set('settings')}>Settings</button>
-    </div>
-  {/if}
+  <div class="home-scroll">
+    <div class="home-inner">
+      {#if $modelError}
+        <div class="model-error">
+          <div class="model-error-icon">!</div>
+          <div class="model-error-body">
+            <p class="model-error-title">Embedding model failed to load</p>
+            <p class="model-error-detail">{$modelError}</p>
+            <p class="model-error-hint">
+              File indexing is paused. Check the model path in settings.
+            </p>
+          </div>
+          <button class="model-error-btn" onclick={() => activeView.set('settings')}>
+            Settings
+          </button>
+        </div>
+      {/if}
 
-  {#if embedDownloading}
-    <div class="model-download">
-      <div class="model-download-header">
-        <span class="model-download-title">
-          Downloading embedding model {$setupProgress.modelLabel}…
-        </span>
-        <span class="model-download-detail">{downloadedMB} / {totalMB} MB ({downloadPct}%)</span>
-      </div>
-      <div class="model-download-bar-wrap">
-        <div class="model-download-bar" style="width: {downloadPct}%"></div>
-      </div>
-    </div>
-  {/if}
+      {#if embedDownloading}
+        <div class="model-download">
+          <div class="model-download-header">
+            <span class="model-download-title">
+              Downloading embedding model {$setupProgress.modelLabel}…
+            </span>
+            <span class="model-download-detail">
+              {downloadedMB} / {totalMB} MB ({downloadPct}%)
+            </span>
+          </div>
+          <div class="model-download-bar-wrap">
+            <div class="model-download-bar" style="width: {downloadPct}%"></div>
+          </div>
+        </div>
+      {/if}
 
-  {#if $syncActive}
-    <SyncFullView />
-  {:else}
-    <SyncBanner />
-    <FileTree />
-  {/if}
+      <!-- ── Documents ────────────────────────────────── -->
+      <section class="home-card doc-card">
+        {#if $syncActive}
+          <div class="doc-sync">
+            <SyncFullView />
+          </div>
+        {:else}
+          <div class="doc-head">
+            <div class="bot-mini">
+              <Bot size={40} shadow blink />
+            </div>
+            <div class="doc-head-text">
+              <span class="sync-label" class:doc-empty={!hasDocuments}>
+                {hasDocuments ? 'Up to date' : 'Nothing indexed yet'}
+              </span>
+              <div class="sync-stats">
+                <span>{$stats.fileCount} file{$stats.fileCount !== 1 ? 's' : ''}</span>
+                <span class="stat-sep">&middot;</span>
+                <span>{$stats.chunkCount} chunk{$stats.chunkCount !== 1 ? 's' : ''}</span>
+              </div>
+            </div>
+            <button class="doc-open-btn" onclick={openFolder} title="Open your NomNomDrive folder">
+              <FolderOpen size={13} />
+              Open folder
+            </button>
+          </div>
+
+          <p class="doc-hint">Drop files anywhere in this window to index them</p>
+
+          {#if hasDocuments}
+            <button
+              class="doc-disclosure"
+              aria-expanded={filesExpanded}
+              onclick={() => (filesExpanded = !filesExpanded)}
+            >
+              <span class="doc-disclosure-caret" class:open={filesExpanded}>
+                <ChevronRight size={12} />
+              </span>
+              {filesExpanded ? 'Hide indexed files' : 'Show indexed files'}
+            </button>
+            {#if filesExpanded}
+              <div class="doc-files">
+                <FileTree />
+              </div>
+            {/if}
+          {/if}
+        {/if}
+      </section>
+
+      <!-- ── Connect your agents ──────────────────────── -->
+      <section class="home-section">
+        <h2 class="home-section-label">Connect your agents</h2>
+        <p class="home-section-desc">
+          Point your AI tools at NomNomDrive so they can search your documents.
+        </p>
+
+        <McpSection />
+        <CloudCard />
+      </section>
+    </div>
+  </div>
 </div>
 
 <style>
-  .files-tab {
+  .home-view {
     position: relative;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
   }
@@ -157,7 +239,7 @@
   .drop-overlay {
     position: absolute;
     inset: 0;
-    z-index: 100;
+    z-index: 40;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -211,8 +293,112 @@
     }
   }
 
+  /* ── Documents card ─────────────────────────────── */
+
+  .doc-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .doc-sync {
+    display: flex;
+    flex-direction: column;
+    height: 400px;
+  }
+
+  .doc-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .doc-head-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .doc-open-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+    padding: 5px 11px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-secondary);
+    font-family: var(--font);
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+
+  .doc-open-btn:hover {
+    background: var(--accent-light);
+    border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+    color: var(--accent);
+  }
+
+  .doc-empty {
+    color: var(--text-secondary);
+  }
+
+  .doc-hint {
+    font-size: 11.5px;
+    color: var(--text-dim);
+    margin: 0;
+  }
+
+  .doc-disclosure {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    align-self: flex-start;
+    padding: 3px 0;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-family: var(--font);
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color var(--transition);
+  }
+
+  .doc-disclosure:hover {
+    color: var(--accent);
+  }
+
+  .doc-disclosure-caret {
+    display: inline-flex;
+    align-items: center;
+    transition: transform var(--transition);
+  }
+
+  .doc-disclosure-caret.open {
+    transform: rotate(90deg);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .doc-disclosure-caret {
+      transition: none;
+    }
+  }
+
+  .doc-files {
+    border-top: 1px solid var(--border-light);
+    padding-top: 4px;
+    margin: 0 -6px;
+  }
+
+  /* ── Banners (model error / embed download) ─────── */
+
   .model-download {
-    margin: 10px 16px;
     padding: 10px 12px;
     background: var(--bg2);
     border: 1px solid var(--border);
@@ -261,7 +447,6 @@
     display: flex;
     align-items: flex-start;
     gap: 10px;
-    margin: 10px 16px;
     padding: 10px 12px;
     background: var(--red-light);
     border: 1px solid var(--red);

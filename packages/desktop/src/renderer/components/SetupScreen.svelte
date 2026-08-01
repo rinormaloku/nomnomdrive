@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { nomnom } from '../lib/nomnom';
-  import { setupStatus, setupProgress, setupGpuFailed, activeTab } from '../lib/stores';
+  import { setupStatus, setupProgress, setupGpuFailed, activeView } from '../lib/stores';
   import type { ModelOption, SetupCatalog } from '../lib/types';
   import EmbedForm from './settings/EmbedForm.svelte';
   import type { EmbedConfigValue, ChatConfigValue } from '../lib/types';
@@ -123,7 +123,7 @@
 
   function goToSettings() {
     setupStatus.set({ needsSetup: false, needsModelDownload: false, checked: true });
-    activeTab.set('settings');
+    activeView.set('settings');
   }
 
   function finish() {

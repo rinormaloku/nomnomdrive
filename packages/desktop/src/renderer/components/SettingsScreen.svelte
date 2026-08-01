@@ -1,13 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { showToast, setupProgress, syncActive, syncProgress, activeTab } from '../lib/stores';
+  import { showToast, setupProgress, syncActive, syncProgress, activeView } from '../lib/stores';
   import { nomnom } from '../lib/nomnom';
   import EmbedForm from './settings/EmbedForm.svelte';
   import type { EmbedConfigValue, ChatConfigValue } from '../lib/types';
   import ChatModelForm from './settings/ChatModelForm.svelte';
   import WatchFoldersForm from './settings/WatchFoldersForm.svelte';
   import ToggleSwitch from './settings/ToggleSwitch.svelte';
-  import { Settings, Sparkles } from 'lucide-svelte';
+  import { ArrowLeft, Settings, Sparkles } from 'lucide-svelte';
 
   type AppConfig = {
     mode: string;
@@ -68,14 +68,14 @@
     mcpPort = cfg.mcp.port;
   }
 
-  // Re-sync the form whenever the settings tab becomes active — the config can
-  // change elsewhere while the app runs (e.g. "Enable Chat" in the Chat tab).
-  let lastActiveTab = '';
+  // Re-sync the form whenever the settings screen becomes active — the config can
+  // change elsewhere while the app runs (e.g. "Enable Chat" in the chat drawer).
+  let lastActiveView = '';
   $: {
-    if ($activeTab === 'settings' && lastActiveTab !== 'settings' && !loading && !saving) {
+    if ($activeView === 'settings' && lastActiveView !== 'settings' && !loading && !saving) {
       refreshConfigForm().catch(() => {});
     }
-    lastActiveTab = $activeTab;
+    lastActiveView = $activeView;
   }
 
   onMount(async () => {
@@ -159,7 +159,7 @@
     }
   }
 
-  // Embed model download / re-indexing status (mirrors the FilesTab banners)
+  // Embed model download / re-indexing status (mirrors the home pane banners)
   $: embedDownloading =
     $setupProgress.phase === 'embed' &&
     $setupProgress.total > 0 &&
@@ -212,6 +212,13 @@
 </script>
 
 <div class="settings-panel">
+  <div class="settings-topbar">
+    <button class="settings-back-btn" onclick={() => activeView.set('home')}>
+      <ArrowLeft size={13} />
+      Back
+    </button>
+    <span class="settings-topbar-title">Settings</span>
+  </div>
 
   {#if loading}
     <div class="loading">
@@ -240,7 +247,7 @@
               <h4 class="subsection-title">Chat</h4>
               <ToggleSwitch bind:checked={chatEnabled} on:change={handleChatToggle} />
             </div>
-            <p class="subsection-desc">Q&A with your documents in the Chat tab.</p>
+            <p class="subsection-desc">Q&A with your documents in the chat drawer.</p>
             {#if chatEnabled}
               <div class="section-card">
                 <ChatModelForm bind:value={chatValue} catalog={chatCatalog} />
@@ -354,6 +361,43 @@
     flex-direction: column;
     height: 100%;
     overflow: hidden;
+  }
+
+  .settings-topbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border-light);
+    flex-shrink: 0;
+  }
+
+  .settings-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 11px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-secondary);
+    font-family: var(--font);
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+
+  .settings-back-btn:hover {
+    background: var(--accent-light);
+    border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+    color: var(--accent);
+  }
+
+  .settings-topbar-title {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--text);
   }
 
   .loading {

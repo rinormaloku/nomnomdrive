@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { config, updateReady, cloudStatus, tunnelStatus } from '../lib/stores';
-  import { Copy, Check } from 'lucide-svelte';
+  import { config, updateReady, cloudStatus, tunnelStatus, chatOpen } from '../lib/stores';
+  import { Copy, Check, MessageSquareText } from 'lucide-svelte';
 
   $: localMcpUrl = $config.mcpPort ? `http://localhost:${$config.mcpPort}/mcp` : null;
   $: cloudMcpUrl = $cloudStatus?.mode === 'cloud' && $cloudStatus.serverUrl
@@ -11,7 +11,7 @@
     connecting: 'Cloud: connecting…',
     connected: 'Cloud: connected',
     reconnecting: 'Cloud: reconnecting…',
-    'auth-expired': 'Cloud: session expired — reconnect in the Cloud tab',
+    'auth-expired': 'Cloud: session expired — reconnect in the cloud card',
     disconnected: 'Cloud: disconnected',
   };
 
@@ -72,6 +72,14 @@
     {/if}
   </div>
   <div class="status-right">
+    <button
+      class="test-it-btn"
+      title="Chat with your documents to test the index"
+      onclick={() => chatOpen.set(true)}
+    >
+      <MessageSquareText size={11} />
+      Test it
+    </button>
     {#if $updateReady}
       <button class="update-btn" onclick={() => window.nomnom.installUpdate()}>
         Restart to update

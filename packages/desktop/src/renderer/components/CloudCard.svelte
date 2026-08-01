@@ -1,7 +1,7 @@
 <script lang="ts">
   import { nomnom } from '../lib/nomnom';
   import { showToast, cloudStatus, tunnelStatus } from '../lib/stores';
-  import { Copy } from 'lucide-svelte';
+  import { Cloud, Copy } from 'lucide-svelte';
   import Bot from './Bot.svelte';
 
   const AUTH_LABELS: Record<string, string> = {
@@ -64,20 +64,26 @@
   }
 </script>
 
-<div class="cloud-intro">
-  <p>Access your documents from anywhere by connecting to the NomNomDrive cloud MCP server.</p>
-</div>
+<div class="home-card cloud-card" id="cloud-card">
+  <div class="cloud-card-head">
+    <span class="cloud-card-icon">
+      <Cloud size={16} />
+    </span>
+    <div class="cloud-card-head-text">
+      <h3 class="cloud-card-title">Use from anywhere</h3>
+      <p class="cloud-card-desc">
+        Let agents on other devices — claude.ai, ChatGPT, a second laptop — reach your documents
+        through a secure tunnel. The documents themselves never leave this machine.
+      </p>
+    </div>
+    <span class="cloud-badge {isCloud ? 'cloud' : 'local'}">{isCloud ? 'cloud' : 'local'}</span>
+  </div>
 
-<div class="cloud-body">
   {#if $cloudStatus === null}
     <div class="cloud-loading">Loading…</div>
-  {:else}
-    <div class="cloud-status-card">
-      <div class="cloud-status-row">
-        <span class="cloud-label">Mode</span>
-        <span class="cloud-badge {isCloud ? 'cloud' : 'local'}">{isCloud ? 'cloud' : 'local'}</span>
-      </div>
-      {#if isCloud && $cloudStatus.serverUrl}
+  {:else if isCloud}
+    {#if $cloudStatus.serverUrl}
+      <div class="cloud-status-card">
         <div class="cloud-status-row">
           <span class="cloud-label">Server</span>
           <span class="cloud-value">{$cloudStatus.serverUrl}</span>
@@ -108,19 +114,15 @@
             </button>
           </div>
         </div>
-      {/if}
-    </div>
-
-    {#if isCloud}
-      <button class="cloud-disconnect-btn" onclick={disconnect} disabled={disconnecting}>
-        {disconnecting ? 'Disconnecting…' : 'Disconnect from cloud'}
-      </button>
-    {:else}
-      <div class="cloud-mascot">
-        <Bot size={64} blink />
-        <p class="cloud-mascot-text">Your data stays on this device</p>
       </div>
-      <div class="cloud-connect-section">
+    {/if}
+
+    <button class="cloud-disconnect-btn" onclick={disconnect} disabled={disconnecting}>
+      {disconnecting ? 'Disconnecting…' : 'Disconnect from cloud'}
+    </button>
+  {:else}
+    <div class="cloud-connect-section">
+      <div class="cloud-connect-row">
         <button class="cloud-connect-btn" onclick={connect} disabled={connecting}>
           {#if connecting}
             <span class="cloud-connect-spinner"></span>
@@ -129,30 +131,37 @@
             Connect to cloud
           {/if}
         </button>
-
-        {#if loginError}
-          <p class="cloud-error">{loginError}</p>
-        {/if}
-
-        <button class="cloud-advanced-toggle" onclick={() => (showAdvanced = !showAdvanced)}>
-          {showAdvanced ? '▾' : '▸'} Advanced
-        </button>
-
-        {#if showAdvanced}
-          <div class="cloud-advanced-panel">
-            <label class="cloud-server-label" for="cloud-server-input">Server URL</label>
-            <input
-              id="cloud-server-input"
-              class="cloud-server-input"
-              type="text"
-              placeholder="https://cloud.nomnomdrive.com"
-              bind:value={customServerUrl}
-              disabled={connecting}
-            />
-            <p class="cloud-hint">Leave blank to use the default cloud. Set to e.g. <code>http://localhost:3030</code> for a local dev instance.</p>
-          </div>
-        {/if}
+        <span class="cloud-mascot-inline">
+          <Bot size={26} blink />
+          <span class="cloud-mascot-text">Your data stays on this device</span>
+        </span>
       </div>
-    {/if}
+
+      {#if loginError}
+        <p class="cloud-error">{loginError}</p>
+      {/if}
+
+      <button class="cloud-advanced-toggle" onclick={() => (showAdvanced = !showAdvanced)}>
+        {showAdvanced ? '▾' : '▸'} Advanced
+      </button>
+
+      {#if showAdvanced}
+        <div class="cloud-advanced-panel">
+          <label class="cloud-server-label" for="cloud-server-input">Server URL</label>
+          <input
+            id="cloud-server-input"
+            class="cloud-server-input"
+            type="text"
+            placeholder="https://cloud.nomnomdrive.com"
+            bind:value={customServerUrl}
+            disabled={connecting}
+          />
+          <p class="cloud-hint">
+            Leave blank to use the default cloud. Set to e.g.
+            <code>http://localhost:3030</code> for a local dev instance.
+          </p>
+        </div>
+      {/if}
+    </div>
   {/if}
 </div>

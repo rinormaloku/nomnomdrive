@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { config, activeTab } from '../lib/stores';
+  import { config, activeView } from '../lib/stores';
   import { nomnom } from '../lib/nomnom';
   import { FolderOpen, Settings } from 'lucide-svelte';
   import Bot from './Bot.svelte';
@@ -21,7 +21,7 @@
       <FolderOpen size={14} />
       <span>Open Folder</span>
     </button>
-    <button class="icon-btn" title="Settings" onclick={() => activeTab.set('settings')}>
+    <button class="icon-btn" title="Settings" onclick={() => activeView.set('settings')}>
       <Settings size={15} />
     </button>
   </div>
