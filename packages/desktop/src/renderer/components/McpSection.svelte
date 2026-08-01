@@ -108,9 +108,10 @@
     return 'mcp-install-btn';
   }
 
-  // The cloud card lives further down the same home pane — scroll to it instead
-  // of navigating away.
-  function scrollToCloud() {
+  // The cloud card sits in the same home pane, collapsed by default — expand it
+  // and scroll it into view instead of navigating away.
+  function openCloudCard() {
+    window.dispatchEvent(new CustomEvent('nomnom:expand-cloud-card'));
     const el = document.getElementById('cloud-card');
     if (!el) return;
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -242,20 +243,9 @@
   </div>
 </div>
 
-{#if isCloud}
-  <div class="mcp-url-box">
-    <span class="mcp-url-label mcp-url-label-cloud">
-      <Cloud size={10} style="vertical-align: -1px" />
-      Cloud Endpoint
-    </span>
-    <div class="mcp-url-value">
-      <code>{activeEndpoint()}</code>
-      <button class="mcp-url-copy" onclick={copyMcpUrl} title="Copy URL">
-        <Copy size={12} />
-      </button>
-    </div>
-  </div>
-{:else}
+<!-- One URL at a time: in cloud mode the endpoint lives in the cloud tunnel card,
+     so this box only shows the local endpoint while the tunnel is not set up. -->
+{#if !isCloud}
   <div class="mcp-url-box">
     <span class="mcp-url-label">MCP Endpoint</span>
     <div class="mcp-url-value">
@@ -265,7 +255,7 @@
       </button>
     </div>
   </div>
-  <button class="mcp-cloud-promo" onclick={scrollToCloud}>
+  <button class="mcp-cloud-promo" onclick={openCloudCard}>
     <Cloud size={13} />
     Connect to cloud to access your data from any device or client
     <span style="margin-left: auto; flex-shrink: 0; display: inline-flex">

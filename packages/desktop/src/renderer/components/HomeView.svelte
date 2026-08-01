@@ -15,13 +15,12 @@
   import Bot from './Bot.svelte';
   import McpSection from './McpSection.svelte';
   import CloudCard from './CloudCard.svelte';
-  import { ChevronRight, FolderOpen } from 'lucide-svelte';
+  import { Check, FileText, FolderOpen, Layers } from 'lucide-svelte';
 
   let dragging = $state(false);
   let dragCounter = 0;
   let nomming = $state(false);
   let nomTimer: ReturnType<typeof setTimeout> | null = null;
-  let filesExpanded = $state(false);
 
   const embedDownloading = $derived(
     $setupProgress.phase === 'embed' &&
@@ -158,65 +157,95 @@
         </div>
       {/if}
 
-      <!-- ── Documents ────────────────────────────────── -->
-      <section class="home-card doc-card">
-        {#if $syncActive}
-          <div class="doc-sync">
-            <SyncFullView />
-          </div>
-        {:else}
-          <div class="doc-head">
-            <div class="bot-mini">
-              <Bot size={40} shadow blink />
-            </div>
-            <div class="doc-head-text">
-              <span class="sync-label" class:doc-empty={!hasDocuments}>
-                {hasDocuments ? 'Up to date' : 'Nothing indexed yet'}
-              </span>
-              <div class="sync-stats">
-                <span>{$stats.fileCount} file{$stats.fileCount !== 1 ? 's' : ''}</span>
-                <span class="stat-sep">&middot;</span>
-                <span>{$stats.chunkCount} chunk{$stats.chunkCount !== 1 ? 's' : ''}</span>
+      <div class="home-grid">
+        <!-- ── Documents (left column) ─────────────────── -->
+        <div class="home-main">
+          <section class="home-card hero-card">
+            {#if $syncActive}
+              <div class="hero-sync">
+                <SyncFullView />
               </div>
-            </div>
-            <button class="doc-open-btn" onclick={openFolder} title="Open your NomNomDrive folder">
-              <FolderOpen size={13} />
-              Open folder
-            </button>
-          </div>
-
-          <p class="doc-hint">Drop files anywhere in this window to index them</p>
-
-          {#if hasDocuments}
-            <button
-              class="doc-disclosure"
-              aria-expanded={filesExpanded}
-              onclick={() => (filesExpanded = !filesExpanded)}
-            >
-              <span class="doc-disclosure-caret" class:open={filesExpanded}>
-                <ChevronRight size={12} />
-              </span>
-              {filesExpanded ? 'Hide indexed files' : 'Show indexed files'}
-            </button>
-            {#if filesExpanded}
-              <div class="doc-files">
-                <FileTree />
+            {:else if hasDocuments}
+              <div class="hero">
+                <div class="hero-bot">
+                  <Bot size={90} shadow blink />
+                </div>
+                <div class="hero-body">
+                  <div class="hero-title-row">
+                    <span class="hero-check">
+                      <Check size={12} />
+                    </span>
+                    <h2 class="hero-title">Everything is indexed!</h2>
+                  </div>
+                  <div class="hero-stats">
+                    <div class="stat-tile">
+                      <span class="stat-num">{$stats.fileCount}</span>
+                      <span class="stat-label">
+                        <FileText size={12} />
+                        Files
+                      </span>
+                    </div>
+                    <div class="stat-tile">
+                      <span class="stat-num">{$stats.chunkCount}</span>
+                      <span class="stat-label">
+                        <Layers size={12} />
+                        Chunks
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            {:else}
+              <div class="hero">
+                <div class="hero-bot">
+                  <Bot size={90} shadow blink mouth="open" />
+                </div>
+                <div class="hero-body">
+                  <h2 class="hero-title">Drag and drop files here to index those</h2>
+                  <p class="hero-sub">
+                    They stay on this machine — NomNom chunks and indexes them so agents can search
+                    them.
+                  </p>
+                </div>
               </div>
             {/if}
+          </section>
+
+          <section class="home-card drop-card">
+            <span class="drop-card-icon">
+              <FolderOpen size={16} />
+            </span>
+            <div class="drop-card-text">
+              <p class="drop-card-title">Drop files or folders anywhere in this window</p>
+              <p class="drop-card-sub">NomNom will index them so any agent can find answers.</p>
+            </div>
+            <button class="drop-card-btn" onclick={openFolder} title="Open your NomNomDrive folder">
+              <FolderOpen size={13} />
+              Open Folder
+            </button>
+          </section>
+
+          {#if hasDocuments}
+            <section class="home-card files-card">
+              <h2 class="home-section-label">Indexed files</h2>
+              <FileTree />
+            </section>
           {/if}
-        {/if}
-      </section>
+        </div>
 
-      <!-- ── Connect your agents ──────────────────────── -->
-      <section class="home-section">
-        <h2 class="home-section-label">Connect your agents</h2>
-        <p class="home-section-desc">
-          Point your AI tools at NomNomDrive so they can search your documents.
-        </p>
+        <!-- ── Connect your agents (right rail) ────────── -->
+        <aside class="home-rail">
+          <CloudCard />
 
-        <McpSection />
-        <CloudCard />
-      </section>
+          <section class="home-card rail-card">
+            <div class="rail-head">
+              <h2 class="home-section-label">Connect your agents</h2>
+              <p class="rail-desc">Point your AI tools at NomNomDrive.</p>
+            </div>
+            <McpSection />
+          </section>
+        </aside>
+      </div>
     </div>
   </div>
 </div>
@@ -291,109 +320,6 @@
     .drop-bot {
       animation: none;
     }
-  }
-
-  /* ── Documents card ─────────────────────────────── */
-
-  .doc-card {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .doc-sync {
-    display: flex;
-    flex-direction: column;
-    height: 400px;
-  }
-
-  .doc-head {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .doc-head-text {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    flex: 1;
-    min-width: 0;
-  }
-
-  .doc-open-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    flex-shrink: 0;
-    padding: 5px 11px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    color: var(--text-secondary);
-    font-family: var(--font);
-    font-size: 11.5px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all var(--transition);
-  }
-
-  .doc-open-btn:hover {
-    background: var(--accent-light);
-    border-color: color-mix(in srgb, var(--accent) 30%, transparent);
-    color: var(--accent);
-  }
-
-  .doc-empty {
-    color: var(--text-secondary);
-  }
-
-  .doc-hint {
-    font-size: 11.5px;
-    color: var(--text-dim);
-    margin: 0;
-  }
-
-  .doc-disclosure {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    align-self: flex-start;
-    padding: 3px 0;
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    font-family: var(--font);
-    font-size: 11.5px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: color var(--transition);
-  }
-
-  .doc-disclosure:hover {
-    color: var(--accent);
-  }
-
-  .doc-disclosure-caret {
-    display: inline-flex;
-    align-items: center;
-    transition: transform var(--transition);
-  }
-
-  .doc-disclosure-caret.open {
-    transform: rotate(90deg);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .doc-disclosure-caret {
-      transition: none;
-    }
-  }
-
-  .doc-files {
-    border-top: 1px solid var(--border-light);
-    padding-top: 4px;
-    margin: 0 -6px;
   }
 
   /* ── Banners (model error / embed download) ─────── */

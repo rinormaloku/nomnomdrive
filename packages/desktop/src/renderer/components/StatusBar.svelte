@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { config, updateReady, cloudStatus, tunnelStatus, chatOpen } from '../lib/stores';
-  import { Copy, Check, MessageSquareText } from 'lucide-svelte';
+  import { config, updateReady, cloudStatus, tunnelStatus } from '../lib/stores';
+  import { Copy, Check } from 'lucide-svelte';
 
   $: localMcpUrl = $config.mcpPort ? `http://localhost:${$config.mcpPort}/mcp` : null;
   $: cloudMcpUrl = $cloudStatus?.mode === 'cloud' && $cloudStatus.serverUrl
@@ -37,8 +37,32 @@
 
 <div class="status-bar">
   <div class="status-left">
-    {#if localMcpUrl}
-      <button class="status-url-btn" class:copied={localCopied} onclick={copyLocal} title="Copy local MCP URL">
+    <!-- Exactly one endpoint is presented at a time: cloud once the tunnel is
+         set up, local otherwise. -->
+    {#if cloudMcpUrl}
+      <button
+        class="status-url-btn status-cloud-btn"
+        class:copied={cloudCopied}
+        onclick={copyCloud}
+        title={TUNNEL_TITLES[$tunnelStatus] ?? 'Copy cloud MCP URL'}
+      >
+        <span class="cloud-dot {$tunnelStatus}"></span>
+        <span class="status-url-text">{cloudMcpUrl}</span>
+        <span class="status-copy-icon">
+          {#if cloudCopied}
+            <Check size={10} />
+          {:else}
+            <Copy size={10} />
+          {/if}
+        </span>
+      </button>
+    {:else if localMcpUrl}
+      <button
+        class="status-url-btn"
+        class:copied={localCopied}
+        onclick={copyLocal}
+        title="Copy local MCP URL"
+      >
         <span class="mcp-dot active"></span>
         <span class="status-url-text">{localMcpUrl}</span>
         <span class="status-copy-icon">
@@ -55,31 +79,8 @@
         <span>MCP</span>
       </span>
     {/if}
-
-    {#if cloudMcpUrl}
-      <span class="status-sep">&middot;</span>
-      <button class="status-url-btn status-cloud-btn" class:copied={cloudCopied} onclick={copyCloud} title={TUNNEL_TITLES[$tunnelStatus] ?? 'Copy cloud MCP URL'}>
-        <span class="cloud-dot {$tunnelStatus}"></span>
-        <span class="status-url-text">{cloudMcpUrl}</span>
-        <span class="status-copy-icon">
-          {#if cloudCopied}
-            <Check size={10} />
-          {:else}
-            <Copy size={10} />
-          {/if}
-        </span>
-      </button>
-    {/if}
   </div>
   <div class="status-right">
-    <button
-      class="test-it-btn"
-      title="Chat with your documents to test the index"
-      onclick={() => chatOpen.set(true)}
-    >
-      <MessageSquareText size={11} />
-      Test it
-    </button>
     {#if $updateReady}
       <button class="update-btn" onclick={() => window.nomnom.installUpdate()}>
         Restart to update

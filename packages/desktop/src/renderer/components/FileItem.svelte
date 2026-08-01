@@ -36,7 +36,7 @@
     <span class="tree-meta">{timeAgo(doc.indexedAt, now)}</span>
     <span class="tree-meta">{formatSize(doc.fileSize)}</span>
     {#if doc.chunkCount}
-      <span class="tree-chunks">{doc.chunkCount} chunks</span>
+      <span class="tree-chunks">{doc.chunkCount} chunk{doc.chunkCount !== 1 ? 's' : ''}</span>
     {/if}
   </div>
 </li>

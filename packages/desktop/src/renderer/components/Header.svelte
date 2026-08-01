@@ -1,7 +1,6 @@
 <script lang="ts">
-  import { config, activeView } from '../lib/stores';
-  import { nomnom } from '../lib/nomnom';
-  import { FolderOpen, Settings } from 'lucide-svelte';
+  import { activeView, chatOpen } from '../lib/stores';
+  import { MessageSquareText, Settings } from 'lucide-svelte';
   import Bot from './Bot.svelte';
 </script>
 
@@ -15,11 +14,11 @@
   <div class="header-actions">
     <button
       class="header-btn"
-      title="Open drop folder"
-      onclick={() => $config.dropFolder && nomnom.openDropFolder($config.dropFolder)}
+      title="Chat with your documents to test the agent"
+      onclick={() => chatOpen.set(true)}
     >
-      <FolderOpen size={14} />
-      <span>Open Folder</span>
+      <MessageSquareText size={14} />
+      <span>Test the agent</span>
     </button>
     <button class="icon-btn" title="Settings" onclick={() => activeView.set('settings')}>
       <Settings size={15} />

@@ -14,7 +14,6 @@
     Files,
     FileText,
     Wrench,
-    RotateCcw,
   } from 'lucide-svelte';
 
   // Shape pushed by the main process on the `chat-tool-call` event.
@@ -204,7 +203,7 @@
     sendMessage();
   }
 
-  async function resetChat() {
+  export async function resetChat() {
     if (busy || reloading) return;
     await nomnom.chatReset();
     messages = [];
@@ -558,10 +557,6 @@
         </button>
       </div>
       <div class="chat-footer-actions">
-        <button class="chat-reset-btn" onclick={resetChat} disabled={busy || reloading}>
-          <RotateCcw size={11} />
-          New chat
-        </button>
         <span class="chat-hint">Enter to send</span>
       </div>
     </div>

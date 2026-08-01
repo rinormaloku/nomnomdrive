@@ -2,7 +2,9 @@
   import { chatOpen } from '../lib/stores';
   import ChatTab from './ChatTab.svelte';
   import Bot from './Bot.svelte';
-  import { X } from 'lucide-svelte';
+  import { RotateCcw, X } from 'lucide-svelte';
+
+  let chatTab = $state<{ resetChat: () => Promise<void> }>();
 
   function close() {
     chatOpen.set(false);
@@ -32,11 +34,19 @@
       <span class="chat-drawer-title">Test your index</span>
       <span class="chat-drawer-sub">Ask a question to check what got indexed</span>
     </div>
+    <button
+      class="chat-drawer-close"
+      title="New chat"
+      aria-label="Start a new chat"
+      onclick={() => chatTab?.resetChat()}
+    >
+      <RotateCcw size={14} />
+    </button>
     <button class="chat-drawer-close" title="Close" aria-label="Close chat" onclick={close}>
       <X size={15} />
     </button>
   </div>
   <div class="chat-drawer-body">
-    <ChatTab />
+    <ChatTab bind:this={chatTab} />
   </div>
 </aside>

@@ -155,8 +155,11 @@ body {
 .home-scroll {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  /* Wide layout fits the viewport — only the file list and the right rail scroll.
+     The <900px stacked fallback re-enables page scrolling (see media query below). */
+  overflow: hidden;
 }
 
 .home-scroll::-webkit-scrollbar {
@@ -178,12 +181,14 @@ body {
 
 .home-inner {
   width: 100%;
-  max-width: 640px;
+  max-width: 1150px;
   margin: 0 auto;
-  padding: 16px 16px 28px;
+  padding: 16px 16px 16px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
 }
 
 .home-card {
@@ -192,12 +197,6 @@ body {
   border-radius: var(--radius);
   padding: 14px;
   box-shadow: var(--shadow-sm);
-}
-
-.home-section {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
 }
 
 .home-section-label {
@@ -209,10 +208,333 @@ body {
   margin: 0;
 }
 
-.home-section-desc {
+/* ── Home pane — two-column layout ────────────────── */
+
+.home-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-rows: minmax(0, 1fr);
+  gap: 20px;
+  align-items: stretch;
+  /* Content-sized so both columns end on the same line (the taller one wins),
+     but still shrinks — never grows past the viewport. */
+  flex: 0 1 auto;
+  min-height: 0;
+}
+
+.home-main,
+.home-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Cards that must keep their natural height inside a flexing column. */
+.home-main > .hero-card,
+.home-main > .drop-card,
+.home-rail > * {
+  flex: 0 0 auto;
+}
+
+/* The agents card absorbs the leftover rail height (so both columns bottom-align)
+   and is the only part of the rail that scrolls when vertical space runs out. */
+.home-rail > .rail-card {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.rail-card .mcp-clients-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 2px;
+}
+
+.rail-card .mcp-clients-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.rail-card .mcp-clients-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.rail-card .mcp-clients-list::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.rail-card .mcp-clients-list::-webkit-scrollbar-thumb:hover {
+  background: var(--text-dim);
+}
+
+@media (max-width: 900px) {
+  /* Stacked fallback: the page scrolls again and every card sizes to content. */
+  .home-scroll {
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .home-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .home-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .home-scroll::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+
+  .home-inner {
+    flex: 0 0 auto;
+    padding-bottom: 28px;
+  }
+
+  .home-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    flex: 0 0 auto;
+  }
+
+  .home-rail > .rail-card {
+    flex: 0 0 auto;
+  }
+
+  .rail-card .mcp-clients-list {
+    overflow: visible;
+    padding-right: 0;
+  }
+
+  .files-card {
+    flex: 0 0 auto;
+  }
+
+  .files-card .file-tree-container {
+    max-height: 340px;
+  }
+}
+
+/* Hero card */
+
+.hero-card {
+  padding: 20px;
+}
+
+.hero-sync {
+  display: flex;
+  flex-direction: column;
+  height: 400px;
+}
+
+.hero {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.hero-bot {
+  flex-shrink: 0;
+  width: 90px;
+  height: 90px;
+}
+
+.hero-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hero-title-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.hero-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--green-light);
+  color: var(--green);
+}
+
+.hero-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.2px;
+  margin: 0;
+}
+
+.hero-sub {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.hero-stats {
+  display: flex;
+  gap: 10px;
+}
+
+.stat-tile {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.stat-num {
+  font-size: 21px;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--text);
+}
+
+.stat-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+/* Indexed files card */
+
+.files-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  /* Takes whatever height is left in the column and scrolls internally. */
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Drop-zone card */
+
+.drop-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg2);
+  border: 1.5px dashed var(--border);
+  box-shadow: none;
+}
+
+.drop-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--bg3);
+  color: var(--text-dim);
+}
+
+.drop-card-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.drop-card-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}
+
+.drop-card-sub {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  margin: 1px 0 0;
+}
+
+.drop-card-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 6px 13px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.drop-card-btn:hover {
+  background: var(--accent-light);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--accent);
+}
+
+/* Right rail cards */
+
+.rail-head {
+  margin-bottom: 10px;
+}
+
+.rail-desc {
   font-size: 11.5px;
   color: var(--text-secondary);
-  margin: -6px 0 0;
+  margin: 2px 0 0;
+}
+
+.home-rail .cloud-status-row {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.home-rail .cloud-label {
+  width: auto;
+}
+
+.home-rail .cloud-value {
+  word-break: break-all;
+}
+
+.home-rail .cloud-mcp-url {
+  width: 100%;
+  min-width: 0;
+}
+
+.home-rail .cloud-conn-inline {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.home-rail .cloud-connect-btn {
+  width: 100%;
+  justify-content: center;
 }
 
 /* ── Mini bot ─────────────────────────────────────── */
@@ -230,7 +552,8 @@ body {
 
 .bot-mini path.b,
 .sync-fv-bot path.b,
-.empty-bot path.b {
+.empty-bot path.b,
+.hero-bot path.b {
   stroke: var(--border);
   stroke-width: 2px;
 }
@@ -1165,8 +1488,55 @@ body {
 
 .cloud-card-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  font-family: var(--font);
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.cloud-card-head:hover .cloud-card-title {
+  color: var(--accent);
+}
+
+.cloud-head-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.cloud-head-status-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.cloud-card-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-dim);
+  transition: transform var(--transition);
+}
+
+.cloud-card.expanded .cloud-card-chevron {
+  transform: rotate(180deg);
+}
+
+.cloud-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: -2px;
 }
 
 .cloud-card-icon {
@@ -1182,7 +1552,9 @@ body {
 }
 
 .cloud-card-head-text {
-  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   min-width: 0;
 }
 
@@ -1190,7 +1562,8 @@ body {
   font-size: 13px;
   font-weight: 700;
   color: var(--text);
-  margin: 0 0 2px;
+  margin: 0;
+  transition: color var(--transition);
 }
 
 .cloud-card-desc {
@@ -1576,28 +1949,6 @@ body {
   opacity: 0.6;
 }
 
-.test-it-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
-  background: var(--accent-light);
-  color: var(--accent);
-  font-family: var(--font);
-  font-size: 10.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all var(--transition);
-}
-
-.test-it-btn:hover {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-
 .version-label {
   font-size: 10.5px;
   color: var(--text-dim);
@@ -1687,11 +2038,18 @@ body {
   border-left: 1px solid var(--border);
   box-shadow: -8px 0 28px rgba(80, 50, 20, 0.16);
   transform: translateX(100%);
-  transition: transform 250ms cubic-bezier(0.32, 0.72, 0, 1);
+  /* Hidden when closed so the box-shadow can't bleed onto the window's right edge;
+     the visibility flip is delayed so the slide-out animation still plays. */
+  visibility: hidden;
+  transition:
+    transform 250ms cubic-bezier(0.32, 0.72, 0, 1),
+    visibility 0s linear 250ms;
 }
 
 .chat-drawer.open {
   transform: translateX(0);
+  visibility: visible;
+  transition: transform 250ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2020,36 +2378,9 @@ body {
 .chat-footer-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 8px;
   padding: 0 4px;
-}
-
-.chat-reset-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  border: 1px solid transparent;
-  background: none;
-  color: var(--text-secondary);
-  font-family: var(--font);
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 3px 10px;
-  border-radius: 999px;
-  transition: all var(--transition);
-}
-
-.chat-reset-btn:hover:not(:disabled) {
-  color: var(--accent);
-  background: var(--accent-light);
-  border-color: color-mix(in srgb, var(--accent) 20%, transparent);
-}
-
-.chat-reset-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
 }
 
 .chat-hint {
