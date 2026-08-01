@@ -1,5 +1,5 @@
 import { config, documents, processedFiles, stats, syncActive, syncProgress, updateReady, setupStatus, setupProgress, setupGpuFailed, modelError, chatModelState } from './stores';
-import type { ChatModelState } from './stores';
+import type { ChatModelState, TunnelStatus } from './stores';
 import { basename } from './utils';
 import type { Document, SetupStatusData, SetupProgressData, ModelOption, SetupCatalog } from './types';
 
@@ -50,12 +50,14 @@ declare global {
       openFile: (filePath: string) => void;
       getDocuments: () => Promise<Document[]>;
       getStats: () => Promise<{ fileCount: number; chunkCount: number }>;
-      getCloudStatus: () => Promise<{ mode: string; serverUrl: string | null; hasCredentials: boolean }>;
+      getCloudStatus: () => Promise<{ mode: string; serverUrl: string | null; hasCredentials: boolean; tunnelStatus: TunnelStatus }>;
       cloudLogin: (serverUrl?: string) => Promise<{ success: boolean; error?: string }>;
       cloudLogout: () => Promise<void>;
       onCloudStatusChanged: (cb: () => void) => void;
+      onCloudTunnelStatus: (cb: (status: TunnelStatus) => void) => void;
       registerMcpClient: (
         client: string,
+        url?: string,
       ) => Promise<{ client: string; registered: boolean; configPath: string }>;
       chatInit: () => Promise<{ ready: boolean }>;
       chatSend: (message: string) => Promise<string>;
@@ -229,7 +231,8 @@ export const nomnom = {
   openDropFolder: (path: string) => window.nomnom.openDropFolder(path),
   openExternalUrl: (url: string) => window.nomnom.openExternalUrl(url),
   openFile: (path: string) => window.nomnom.openFile(path),
-  registerMcpClient: (client: string) => window.nomnom.registerMcpClient(client),
+  registerMcpClient: (client: string, url?: string) =>
+    window.nomnom.registerMcpClient(client, url),
   chatInit: () => window.nomnom.chatInit(),
   chatSend: (msg: string) => window.nomnom.chatSend(msg),
   chatReset: () => window.nomnom.chatReset(),
@@ -243,6 +246,8 @@ export const nomnom = {
   cloudLogin: (serverUrl?: string) => window.nomnom.cloudLogin(serverUrl),
   cloudLogout: () => window.nomnom.cloudLogout(),
   onCloudStatusChanged: (cb: () => void) => window.nomnom.onCloudStatusChanged(cb),
+  onCloudTunnelStatus: (cb: (status: TunnelStatus) => void) =>
+    window.nomnom.onCloudTunnelStatus(cb),
   gpuDetect: () => window.nomnom.gpuDetect(),
   gpuStatus: () => window.nomnom.gpuStatus(),
   gpuActiveBackend: () => window.nomnom.gpuActiveBackend(),

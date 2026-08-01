@@ -32,3 +32,13 @@ export interface TunnelPong {
 }
 
 export type TunnelResponse = TunnelPong | TunnelToolResponse;
+
+// ── Tunnel connection status (agent → UI) ─────────────────────────────────────
+
+/** Live state of the desktop→cloud tunnel, surfaced to the renderer. */
+export type TunnelStatus =
+  | 'connecting'
+  | 'connected'
+  | 'reconnecting'
+  | 'auth-expired'
+  | 'disconnected';

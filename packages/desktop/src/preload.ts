@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
+import type { TunnelStatus } from '@nomnomdrive/shared';
 
 contextBridge.exposeInMainWorld('nomnom', {
   // ── Event listeners ──────────────────────────────
@@ -106,6 +107,7 @@ contextBridge.exposeInMainWorld('nomnom', {
     mode: string;
     serverUrl: string | null;
     hasCredentials: boolean;
+    tunnelStatus: TunnelStatus;
   }> => ipcRenderer.invoke('cloud:get-status'),
 
   cloudLogin: (serverUrl?: string): Promise<{ success: boolean; error?: string }> =>
@@ -116,10 +118,14 @@ contextBridge.exposeInMainWorld('nomnom', {
   onCloudStatusChanged: (cb: () => void) =>
     ipcRenderer.on('cloud:status-changed', cb),
 
+  onCloudTunnelStatus: (cb: (status: TunnelStatus) => void) =>
+    ipcRenderer.on('cloud:tunnel-status', (_event, status: TunnelStatus) => cb(status)),
+
   registerMcpClient: (
     client: string,
+    url?: string,
   ): Promise<{ client: string; registered: boolean; configPath: string }> =>
-    ipcRenderer.invoke('register-mcp-client', client),
+    ipcRenderer.invoke('register-mcp-client', client, url),
 
   // ── Chat ────────────────────────────────────────
   chatInit: (): Promise<{ ready: boolean }> =>

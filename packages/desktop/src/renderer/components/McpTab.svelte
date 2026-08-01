@@ -8,20 +8,20 @@
   $: cloudMcpUrl = isCloud ? `${$cloudStatus!.serverUrl}/mcp` : null;
 
   const mcpCommands: Record<string, string> = {
-    'claude-code': 'claude mcp add --transport http nomnomdrive http://localhost:{PORT}/mcp',
+    'claude-code': 'claude mcp add --transport http nomnomdrive {URL}',
     opencode: `{
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
     "nomnomdrive": {
       "type": "remote",
-      "url": "http://localhost:{PORT}/mcp"
+      "url": "{URL}"
     }
   }
 }`,
     windsurf: `{
   "mcpServers": {
     "nomnomdrive": {
-      "url": "http://localhost:{PORT}/mcp"
+      "url": "{URL}"
     }
   }
 }`,
@@ -38,9 +38,15 @@
     return `http://localhost:${port()}/mcp`;
   }
 
+  // When connected to cloud, present the cloud URL everywhere so clients (local or
+  // remote) get a single endpoint instead of two competing URLs.
+  function activeEndpoint() {
+    return isCloud && cloudMcpUrl ? cloudMcpUrl : mcpEndpoint();
+  }
+
   async function handleInstall(client: string) {
     if (client === 'vscode') {
-      const vsConfig = JSON.stringify({ type: 'http', url: mcpEndpoint() });
+      const vsConfig = JSON.stringify({ type: 'http', url: activeEndpoint() });
       const link =
         'https://vscode.dev/redirect/mcp/install?name=nomnomdrive&config=' +
         encodeURIComponent(vsConfig);
@@ -50,7 +56,7 @@
     }
 
     if (client === 'cursor') {
-      const cursorConfig = JSON.stringify({ url: mcpEndpoint() });
+      const cursorConfig = JSON.stringify({ url: activeEndpoint() });
       const b64 = btoa(cursorConfig);
       const link = `cursor://anysphere.cursor-deeplink/mcp/install?name=nomnomdrive&config=${b64}`;
       nomnom.openExternalUrl(link);
@@ -60,7 +66,7 @@
 
     btnStates = { ...btnStates, [client]: 'loading' };
     try {
-      const result = await nomnom.registerMcpClient(client);
+      const result = await nomnom.registerMcpClient(client, activeEndpoint());
       btnStates = { ...btnStates, [client]: result.registered ? 'installed' : 'not-found' };
       showToast(
         result.registered
@@ -77,12 +83,12 @@
   }
 
   function handleCopy(client: string) {
-    const cmd = (mcpCommands[client] || '').replace(/\{PORT\}/g, String(port()));
+    const cmd = (mcpCommands[client] || '').replace(/\{URL\}/g, activeEndpoint());
     navigator.clipboard.writeText(cmd).then(() => showToast('Copied to clipboard'));
   }
 
   function copyMcpUrl() {
-    navigator.clipboard.writeText(mcpEndpoint()).then(() => showToast('MCP URL copied'));
+    navigator.clipboard.writeText(activeEndpoint()).then(() => showToast('MCP URL copied'));
   }
 
   function installBtnLabel(client: string) {
@@ -231,22 +237,15 @@
   </div>
 </div>
 
-{#if cloudMcpUrl}
+{#if isCloud}
   <div class="mcp-url-box">
-    <span class="mcp-url-label">Local Endpoint</span>
-    <div class="mcp-url-value">
-      <code>{mcpEndpoint()}</code>
-      <button class="mcp-url-copy" onclick={copyMcpUrl} title="Copy URL">
-        <Copy size={12} />
-      </button>
-    </div>
     <span class="mcp-url-label mcp-url-label-cloud">
       <Cloud size={10} style="vertical-align: -1px" />
       Cloud Endpoint
     </span>
     <div class="mcp-url-value">
-      <code>{cloudMcpUrl}</code>
-      <button class="mcp-url-copy" onclick={() => navigator.clipboard.writeText(cloudMcpUrl!).then(() => showToast('Cloud MCP URL copied'))} title="Copy cloud URL">
+      <code>{activeEndpoint()}</code>
+      <button class="mcp-url-copy" onclick={copyMcpUrl} title="Copy URL">
         <Copy size={12} />
       </button>
     </div>
@@ -255,7 +254,7 @@
   <div class="mcp-url-box">
     <span class="mcp-url-label">MCP Endpoint</span>
     <div class="mcp-url-value">
-      <code>{mcpEndpoint()}</code>
+      <code>{activeEndpoint()}</code>
       <button class="mcp-url-copy" onclick={copyMcpUrl} title="Copy URL">
         <Copy size={12} />
       </button>

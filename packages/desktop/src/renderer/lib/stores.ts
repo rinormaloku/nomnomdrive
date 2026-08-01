@@ -1,7 +1,20 @@
 import { writable } from 'svelte/store';
 
-export type CloudStatus = { mode: string; serverUrl: string | null; hasCredentials: boolean };
+export type TunnelStatus =
+  | 'connecting'
+  | 'connected'
+  | 'reconnecting'
+  | 'auth-expired'
+  | 'disconnected';
+export type CloudStatus = {
+  mode: string;
+  serverUrl: string | null;
+  hasCredentials: boolean;
+  tunnelStatus: TunnelStatus;
+};
 export const cloudStatus = writable<CloudStatus | null>(null);
+/** Live tunnel connection state, pushed from main via `cloud:tunnel-status`. */
+export const tunnelStatus = writable<TunnelStatus>('disconnected');
 import type { Config, Document, ProcessedFile, Stats, SyncProgress, SetupStoreState, SetupProgressData } from './types';
 
 export const config = writable<Config>({ dropFolder: '', mcpPort: null, chatConfigured: false });

@@ -28,7 +28,8 @@ import { bootstrapMcpServer } from './mcp/bootstrap';
 import { patchMcpClientByName } from './mcp-register';
 import { ChatEngineProxy, createChatEngine } from './chat-engine';
 import { TunnelClient } from './tunnel-client';
-import type { IndexingProgress } from '@nomnomdrive/shared';
+import { refreshAccessToken } from './cloud-auth';
+import type { IndexingProgress, TunnelStatus } from '@nomnomdrive/shared';
 import {
   loadCloudCredentials,
   saveCloudCredentials,
@@ -125,6 +126,13 @@ let tray: Tray | null = null;
 let mainWindow: BrowserWindow | null = null;
 let forceQuit = false;
 let activeTunnelClient: TunnelClient | null = null;
+let tunnelStatus: TunnelStatus = 'disconnected';
+
+/** Update the cached tunnel status and push it to the renderer. */
+function emitTunnelStatus(status: TunnelStatus): void {
+  tunnelStatus = status;
+  mainWindow?.webContents.send('cloud:tunnel-status', status);
+}
 
 /** Set by whenReady(); called from setup:start after first-run setup completes. */
 let _startEmbedderAndWatcher: (() => Promise<void>) | null = null;
@@ -336,6 +344,7 @@ ipcMain.handle('cloud:get-status', async () => {
     mode: cfg.mode ?? 'local',
     serverUrl: cfg.cloud?.serverUrl ?? null,
     hasCredentials: !!creds?.accessToken,
+    tunnelStatus,
   };
 });
 
@@ -346,6 +355,7 @@ ipcMain.handle('cloud:logout', async () => {
   const cfg = await loadConfig();
   cfg.mode = 'local';
   await saveConfig(cfg);
+  emitTunnelStatus('disconnected');
   mainWindow?.webContents.send('cloud:status-changed');
 });
 
@@ -634,6 +644,7 @@ app.whenReady().then(async () => {
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token,
         expiresAt: tokens.expires_in ? Date.now() + tokens.expires_in * 1000 : undefined,
+        clientId,
       });
 
       const cfg = await loadConfig();
@@ -643,7 +654,14 @@ app.whenReady().then(async () => {
 
       // Start tunnel
       activeTunnelClient?.stop();
-      activeTunnelClient = new TunnelClient(normalizedUrl, tokens.access_token, store, embedder);
+      activeTunnelClient = new TunnelClient(
+        normalizedUrl,
+        tokens.access_token,
+        store,
+        embedder,
+        () => refreshAccessToken(normalizedUrl),
+        emitTunnelStatus,
+      );
       activeTunnelClient.connect();
 
       mainWindow?.webContents.send('cloud:status-changed');
@@ -654,9 +672,9 @@ app.whenReady().then(async () => {
     }
   });
 
-  ipcMain.handle('register-mcp-client', async (_event, client: string) => {
-    const port = config.mcp.port;
-    return patchMcpClientByName(client, port);
+  ipcMain.handle('register-mcp-client', async (_event, client: string, url?: string) => {
+    const endpoint = url ?? `http://localhost:${config.mcp.port}/mcp`;
+    return patchMcpClientByName(client, endpoint);
   });
 
   // ── Chat engine (lazy-loaded) ──
@@ -896,13 +914,22 @@ app.whenReady().then(async () => {
 
   // Start cloud tunnel if mode=cloud and credentials are saved
   if (config.mode === 'cloud' && config.cloud?.serverUrl) {
-    const creds = await loadCloudCredentials();
+    const serverUrl = config.cloud.serverUrl;
+    let creds = await loadCloudCredentials();
+    // Proactively refresh if the access token is expired or about to expire, so we
+    // don't open the tunnel with a stale token and eat a guaranteed 4001.
+    if (creds?.expiresAt && creds.expiresAt < Date.now() + 60_000) {
+      await refreshAccessToken(serverUrl);
+      creds = await loadCloudCredentials();
+    }
     if (creds?.accessToken) {
       activeTunnelClient = new TunnelClient(
-        config.cloud.serverUrl,
+        serverUrl,
         creds.accessToken,
         store,
         embedder,
+        () => refreshAccessToken(serverUrl),
+        emitTunnelStatus,
       );
       activeTunnelClient.connect();
       app.on('before-quit', () => activeTunnelClient?.stop());

@@ -103,6 +103,8 @@ export interface CloudCredentials {
   accessToken: string;
   refreshToken?: string;
   expiresAt?: number;
+  /** OAuth client_id from dynamic registration — required to perform a refresh_token grant. */
+  clientId?: string;
 }
 
 export function getCloudCredentialsPath(): string {

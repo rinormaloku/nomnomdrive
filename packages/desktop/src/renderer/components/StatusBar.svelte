@@ -1,11 +1,19 @@
 <script lang="ts">
-  import { config, updateReady, cloudStatus } from '../lib/stores';
+  import { config, updateReady, cloudStatus, tunnelStatus } from '../lib/stores';
   import { Copy, Check } from 'lucide-svelte';
 
   $: localMcpUrl = $config.mcpPort ? `http://localhost:${$config.mcpPort}/mcp` : null;
   $: cloudMcpUrl = $cloudStatus?.mode === 'cloud' && $cloudStatus.serverUrl
     ? `${$cloudStatus.serverUrl}/mcp`
     : null;
+
+  const TUNNEL_TITLES: Record<string, string> = {
+    connecting: 'Cloud: connecting…',
+    connected: 'Cloud: connected',
+    reconnecting: 'Cloud: reconnecting…',
+    'auth-expired': 'Cloud: session expired — reconnect in the Cloud tab',
+    disconnected: 'Cloud: disconnected',
+  };
 
   let localCopied = false;
   let cloudCopied = false;
@@ -50,8 +58,8 @@
 
     {#if cloudMcpUrl}
       <span class="status-sep">&middot;</span>
-      <button class="status-url-btn status-cloud-btn" class:copied={cloudCopied} onclick={copyCloud} title="Copy cloud MCP URL">
-        <span class="cloud-dot"></span>
+      <button class="status-url-btn status-cloud-btn" class:copied={cloudCopied} onclick={copyCloud} title={TUNNEL_TITLES[$tunnelStatus] ?? 'Copy cloud MCP URL'}>
+        <span class="cloud-dot {$tunnelStatus}"></span>
         <span class="status-url-text">{cloudMcpUrl}</span>
         <span class="status-copy-icon">
           {#if cloudCopied}

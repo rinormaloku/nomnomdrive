@@ -125,6 +125,7 @@ function loginCommand(): Command {
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token,
         expiresAt: tokens.expires_in ? Date.now() + tokens.expires_in * 1000 : undefined,
+        clientId,
       });
 
       // Update config to cloud mode

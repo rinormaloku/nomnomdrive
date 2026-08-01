@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { activeTab, setupStatus, cloudStatus } from './lib/stores';
+  import { activeTab, setupStatus, cloudStatus, tunnelStatus } from './lib/stores';
   import { initNomnom, nomnom } from './lib/nomnom';
   import Header from './components/Header.svelte';
   import TabBar from './components/TabBar.svelte';
@@ -17,10 +17,13 @@
     initNomnom();
 
     const refreshCloud = async () => {
-      cloudStatus.set(await nomnom.getCloudStatus());
+      const status = await nomnom.getCloudStatus();
+      cloudStatus.set(status);
+      tunnelStatus.set(status.tunnelStatus);
     };
     await refreshCloud();
     nomnom.onCloudStatusChanged(refreshCloud);
+    nomnom.onCloudTunnelStatus((s) => tunnelStatus.set(s));
 
     // Check if onboarding is needed
     try {

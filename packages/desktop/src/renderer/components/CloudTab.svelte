@@ -1,8 +1,16 @@
 <script lang="ts">
   import { nomnom } from '../lib/nomnom';
-  import { showToast, cloudStatus } from '../lib/stores';
+  import { showToast, cloudStatus, tunnelStatus } from '../lib/stores';
   import { Copy } from 'lucide-svelte';
   import Bot from './Bot.svelte';
+
+  const AUTH_LABELS: Record<string, string> = {
+    connecting: 'Connecting…',
+    connected: 'Connected',
+    reconnecting: 'Reconnecting…',
+    'auth-expired': 'Session expired',
+    disconnected: 'Disconnected',
+  };
 
   let connecting = false;
   let disconnecting = false;
@@ -22,6 +30,23 @@
         loginError = result.error ?? 'Login failed';
       } else {
         showToast('Connected to cloud');
+      }
+    } finally {
+      connecting = false;
+    }
+  }
+
+  // Re-run OAuth against the server we're already configured for (not the default),
+  // minting fresh tokens after a session expiry.
+  async function reconnect() {
+    connecting = true;
+    loginError = '';
+    try {
+      const result = await nomnom.cloudLogin($cloudStatus?.serverUrl ?? undefined);
+      if (!result.success) {
+        loginError = result.error ?? 'Reconnect failed';
+      } else {
+        showToast('Reconnected to cloud');
       }
     } finally {
       connecting = false;
@@ -58,8 +83,21 @@
           <span class="cloud-value">{$cloudStatus.serverUrl}</span>
         </div>
         <div class="cloud-status-row">
-          <span class="cloud-label">Auth</span>
-          <span class="cloud-value">{$cloudStatus.hasCredentials ? 'Credentials saved' : 'Not authenticated'}</span>
+          <span class="cloud-label">Connection</span>
+          {#if $tunnelStatus === 'auth-expired'}
+            <span class="cloud-conn-inline">
+              <span class="cloud-status-dot {$tunnelStatus}"></span>
+              <span class="cloud-value">Session expired</span>
+              <button class="cloud-reconnect-btn" onclick={reconnect} disabled={connecting}>
+                {connecting ? 'Reconnecting…' : 'Reconnect'}
+              </button>
+            </span>
+          {:else}
+            <span class="cloud-conn-inline">
+              <span class="cloud-status-dot {$tunnelStatus}"></span>
+              <span class="cloud-value">{AUTH_LABELS[$tunnelStatus] ?? 'Unknown'}</span>
+            </span>
+          {/if}
         </div>
         <div class="cloud-status-row cloud-mcp-row">
           <span class="cloud-label">MCP URL</span>

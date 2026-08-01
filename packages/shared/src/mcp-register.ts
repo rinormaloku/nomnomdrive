@@ -38,7 +38,7 @@ function getVSCodeConfigPath(): string {
   }
 }
 
-async function patchMcpConfig(configPath: string, mcpPort: number): Promise<boolean> {
+async function patchMcpConfig(configPath: string, url: string): Promise<boolean> {
   const dir = path.dirname(configPath);
 
   // Check if the config directory exists (indicates client is installed)
@@ -64,9 +64,7 @@ async function patchMcpConfig(configPath: string, mcpPort: number): Promise<bool
   }
 
   config.mcpServers = config.mcpServers ?? {};
-  config.mcpServers['nomnomdrive'] = {
-    url: `http://localhost:${mcpPort}/mcp`,
-  };
+  config.mcpServers['nomnomdrive'] = { url };
 
   await fs.mkdir(dir, { recursive: true });
   await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
@@ -87,9 +85,10 @@ export async function registerMcpClients(mcpPort: number): Promise<RegistrationR
   ];
 
   const results: RegistrationResult[] = [];
+  const url = `http://localhost:${mcpPort}/mcp`;
 
   for (const { client, configPath } of clients) {
-    const registered = await patchMcpConfig(configPath, mcpPort);
+    const registered = await patchMcpConfig(configPath, url);
     results.push({ client, registered, configPath });
   }
 
@@ -99,7 +98,7 @@ export async function registerMcpClients(mcpPort: number): Promise<RegistrationR
 /** Patch a single MCP client config by name (used by the renderer one-click install). */
 export async function patchMcpClientByName(
   clientName: string,
-  mcpPort: number,
+  url: string,
 ): Promise<RegistrationResult> {
   const clientMap: Record<string, { client: string; configPath: string }> = {
     'vscode': { client: 'VS Code', configPath: getVSCodeConfigPath() },
@@ -112,6 +111,6 @@ export async function patchMcpClientByName(
     return { client: clientName, registered: false, configPath: '' };
   }
 
-  const registered = await patchMcpConfig(entry.configPath, mcpPort);
+  const registered = await patchMcpConfig(entry.configPath, url);
   return { client: entry.client, registered, configPath: entry.configPath };
 }
