@@ -2,6 +2,7 @@
   "name": "nomnomdrive",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@9.15.5",
   "scripts": {
     "build": "pnpm --filter @nomnomdrive/shared build && pnpm --filter @nomnomdrive/desktop build && pnpm --filter @nomnomdrive/cloud build",
     "build:cloud": "pnpm --filter @nomnomdrive/shared build && pnpm --filter @nomnomdrive/cloud build",
