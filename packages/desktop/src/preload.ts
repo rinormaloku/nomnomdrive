@@ -197,6 +197,8 @@ contextBridge.exposeInMainWorld('nomnom', {
 
   openFolderDialog: (): Promise<string | null> => ipcRenderer.invoke('open-folder-dialog'),
 
+  openFilesDialog: (): Promise<string[]> => ipcRenderer.invoke('open-files-dialog'),
+
   copyToWatchFolder: (filePaths: string[]): Promise<{
     success: boolean;
     error?: string;

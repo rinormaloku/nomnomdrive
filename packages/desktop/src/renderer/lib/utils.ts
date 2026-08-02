@@ -24,20 +24,21 @@ export function formatEta(seconds: number): string {
   return '~' + Math.ceil(seconds / 60) + 'm left';
 }
 
+// File-type tones — the same set the landing page uses (packages/cloud/public/landing.html).
 const FILE_COLORS: Record<string, string> = {
-  pdf: '#de350b',
-  md: '#6b6b76',
-  txt: '#6b6b76',
-  csv: '#00875a',
-  doc: '#0061ff',
-  docx: '#0061ff',
-  pptx: '#de6b35',
-  odt: '#0061ff',
-  rtf: '#6b6b76',
+  pdf: '#e8384f',
+  md: '#64748b',
+  txt: '#64748b',
+  rtf: '#64748b',
+  csv: '#12a150',
+  doc: '#2b7fff',
+  docx: '#2b7fff',
+  odt: '#2b7fff',
+  pptx: '#ea580c',
 };
 
 export function fileIconSvg(fileType: string): string {
-  const c = FILE_COLORS[fileType] || '#6b6b76';
+  const c = FILE_COLORS[fileType] || '#64748b';
   return `<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="3" y="1" width="10" height="14" rx="1.5" stroke="${c}" stroke-width="1.2"/><path d="M6 5.5h4M6 8h4M6 10.5h2.5" stroke="${c}" stroke-width="1" stroke-linecap="round"/></svg>`;
 }
 

@@ -97,7 +97,7 @@ node packages/desktop/dist/cli/index.js cloud status
 node packages/desktop/dist/cli/index.js start
 ```
 
-The desktop will connect to the cloud via WebSocket. You can then test MCP tool calls (`search_documents`, `list_folders`, `get_document`) through `http://localhost:3030/mcp`.
+The desktop will connect to the cloud via WebSocket. You can then test MCP tool calls (`search_documents`, `list_files`, `read_document`) through `http://localhost:3030/mcp`.
 
 For the complete guide including API key generation, MCP inspector testing, and Claude Desktop integration, see [CLOUD-DEV.md](CLOUD-DEV.md).
 

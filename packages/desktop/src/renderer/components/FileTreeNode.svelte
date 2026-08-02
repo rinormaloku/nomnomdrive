@@ -32,9 +32,9 @@
     <span class="tree-toggle" class:expanded>&#9654;</span>
     <span class="tree-icon tree-folder-icon">
       {#if expanded}
-        <FolderOpen size={14} color="#D4A020" fill="#FFC940" />
+        <FolderOpen size={14} color="var(--accent)" fill="var(--accent-light)" />
       {:else}
-        <Folder size={14} color="#D4A020" fill="#FFC940" />
+        <Folder size={14} color="var(--accent)" fill="var(--accent-light)" />
       {/if}
     </span>
     <span class="tree-name">{name}</span>

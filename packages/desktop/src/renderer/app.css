@@ -6,30 +6,41 @@
   padding: 0;
 }
 
+/* Design tokens — shared with the marketing site (packages/cloud/public/landing.html).
+   Keep the two in sync: the app and the landing page should read as one product. */
 :root {
-  --bg: #fffcf9;
-  --bg2: #faf6f1;
-  --bg3: #f0ebe4;
-  --border: #e5ddd4;
-  --border-light: #f0e9e1;
-  --accent: #e86c3a;
-  --accent-hover: #d45a2a;
-  --accent-light: #fef0ea;
-  --text: #2d2420;
-  --text-secondary: #7a6e65;
-  --text-dim: #a69889;
-  --green: #2d9d6a;
-  --green-light: #eaf6ef;
-  --red: #d94432;
-  --red-light: #fef0ee;
-  --yellow: #e8941a;
-  --radius: 10px;
-  --radius-sm: 7px;
-  --font: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: 'SF Mono', 'Fira Code', 'Consolas', 'DejaVu Sans Mono', monospace;
-  --shadow-sm: 0 1px 3px rgba(80, 50, 20, 0.06);
-  --shadow: 0 2px 10px rgba(80, 50, 20, 0.10);
-  --shadow-lg: 0 4px 20px rgba(80, 50, 20, 0.12);
+  /* Surfaces. The page is a soft grey; cards sit on top of it in white.
+     --bg doubles as the inset surface (inputs, list rows) inside a white card. */
+  --bg: #f6f7f9;
+  --bg2: #ffffff;
+  --bg3: #eef1f6;
+  --border: #e7eaf0;
+  --border-light: #eff2f6;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-light: #eff4ff;
+  --text: #0a0f1c;
+  --text-secondary: #4a5568;
+  --text-dim: #8b95a8;
+  --green: #15a34a;
+  --green-light: #ecfdf3;
+  --red: #e11d48;
+  --red-light: #fff1f3;
+  --yellow: #d97706;
+  /* Backdrop for the mascot mark — deep enough that his white head reads. */
+  --mark-bg: #dfe5ee;
+  --radius: 12px;
+  --radius-sm: 9px;
+  --font: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-display: 'Bricolage Grotesque', 'DM Sans', sans-serif;
+  --font-mono: 'DM Mono', 'SF Mono', 'Fira Code', 'Consolas', 'DejaVu Sans Mono', monospace;
+  --shadow-sm: 0 1px 2px rgba(10, 15, 28, 0.05);
+  --shadow:
+    0 1px 3px rgba(10, 15, 28, 0.05),
+    0 8px 24px -12px rgba(10, 15, 28, 0.1);
+  --shadow-lg:
+    0 2px 6px rgba(10, 15, 28, 0.05),
+    0 22px 50px -22px rgba(10, 15, 28, 0.2);
   --transition: 180ms ease;
 }
 
@@ -44,9 +55,19 @@ body {
   line-height: 1.45;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-font-smoothing: antialiased;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+/* Headings use the display face, same as the landing page. */
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
 }
 
 #app {
@@ -64,7 +85,7 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 10px 14px;
-  background: linear-gradient(180deg, var(--bg) 0%, var(--bg2) 100%);
+  background: var(--bg2);
   border-bottom: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
   flex-shrink: 0;
@@ -441,6 +462,34 @@ body {
   background: var(--bg2);
   border: 1.5px dashed var(--border);
   box-shadow: none;
+  cursor: pointer;
+  transition:
+    border-color var(--transition),
+    background var(--transition),
+    box-shadow var(--transition),
+    transform var(--transition);
+}
+
+.drop-card:hover,
+.drop-card:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: color-mix(in srgb, var(--accent) 4%, var(--bg2));
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.drop-card:focus-visible {
+  border-style: solid;
+}
+
+.drop-card:active {
+  transform: translateY(0);
+}
+
+.drop-card.busy {
+  pointer-events: none;
+  opacity: 0.7;
 }
 
 .drop-card-icon {
@@ -453,6 +502,55 @@ body {
   border-radius: 50%;
   background: var(--bg3);
   color: var(--text-dim);
+  transition:
+    background var(--transition),
+    color var(--transition);
+}
+
+.drop-card:hover .drop-card-icon,
+.drop-card:focus-visible .drop-card-icon {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+/* The three sheets fan apart on hover — the same "papers going in" cue
+   the landing page uses, kept to a couple of pixels. */
+.drop-card-icon .pg {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 220ms cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+
+.drop-card:hover .drop-card-icon .pg-l,
+.drop-card:focus-visible .drop-card-icon .pg-l {
+  transform: translate(-2.5px, 1px) rotate(-8deg);
+}
+
+.drop-card:hover .drop-card-icon .pg-r,
+.drop-card:focus-visible .drop-card-icon .pg-r {
+  transform: translate(2.5px, 1px) rotate(8deg);
+}
+
+.drop-card:hover .drop-card-icon .pg-c,
+.drop-card:focus-visible .drop-card-icon .pg-c {
+  transform: translateY(-2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drop-card,
+  .drop-card-icon .pg {
+    transition: none;
+  }
+
+  .drop-card:hover,
+  .drop-card:focus-visible {
+    transform: none;
+  }
+
+  .drop-card:hover .drop-card-icon .pg,
+  .drop-card:focus-visible .drop-card-icon .pg {
+    transform: none;
+  }
 }
 
 .drop-card-text {
@@ -490,10 +588,20 @@ body {
   transition: all var(--transition);
 }
 
-.drop-card-btn:hover {
-  background: var(--accent-light);
-  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
-  color: var(--accent);
+/* Stays on the card colour while the card is hovered, so it still reads
+   as its own target rather than part of the highlighted area. */
+.drop-card:hover .drop-card-btn {
+  background: var(--bg2);
+  border-color: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+/* Needs to out-specify `.drop-card:hover .drop-card-btn` above — hovering the
+   button also hovers the card, so without this the text goes white on white. */
+.drop-card-btn:hover,
+.drop-card:hover .drop-card-btn:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
 }
 
 /* Right rail cards */
@@ -1383,7 +1491,7 @@ body {
 
 .mcp-dot.active {
   background: var(--green);
-  box-shadow: 0 0 6px rgba(45, 157, 106, 0.5);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--green) 50%, transparent);
 }
 
 .cloud-dot {
@@ -2036,7 +2144,7 @@ body {
   flex-direction: column;
   background: var(--bg);
   border-left: 1px solid var(--border);
-  box-shadow: -8px 0 28px rgba(80, 50, 20, 0.16);
+  box-shadow: -8px 0 28px rgba(10, 15, 28, 0.14);
   transform: translateX(100%);
   /* Hidden when closed so the box-shadow can't bleed onto the window's right edge;
      the visibility flip is delayed so the slide-out animation still plays. */
@@ -2065,7 +2173,7 @@ body {
   gap: 9px;
   padding: 9px 12px;
   flex-shrink: 0;
-  background: linear-gradient(180deg, var(--bg) 0%, var(--bg2) 100%);
+  background: var(--bg2);
   border-bottom: 1px solid var(--border);
 }
 
@@ -2238,7 +2346,7 @@ body {
 }
 
 .chat-bubble.assistant code {
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   background: rgba(0, 0, 0, 0.06);
   padding: 1px 4px;
@@ -2249,7 +2357,7 @@ body {
   margin: 6px 0;
   padding: 8px 10px;
   background: var(--text);
-  color: #f0ebe4;
+  color: var(--bg3);
   border-radius: var(--radius-sm);
   overflow-x: auto;
   font-size: 11px;
@@ -2309,7 +2417,7 @@ body {
   flex-shrink: 0;
   padding: 10px max(14px, calc((100% - 780px) / 2)) 10px;
   border-top: 1px solid var(--border);
-  background: linear-gradient(180deg, var(--bg) 0%, var(--bg2) 100%);
+  background: var(--bg2);
 }
 
 .chat-input-row {

@@ -138,18 +138,17 @@ export class Indexer {
     if (!text.trim()) return;
 
     // 6. Chunk
+    //
+    // Chunk text is embedded exactly as it appears in the document. An earlier
+    // version prepended a `<metadata>` header (file, name, type, position) to
+    // every chunk so a bare number would still be retrievable by file name.
+    // It worked, but the header is identical across a file and near-identical
+    // across the corpus, so it pushed every chunk of a document toward the same
+    // point and flattened the variance the ranking depends on. Source identity
+    // now lives in the `documents` table and the FTS `filename` column, and is
+    // attached to results at query time instead.
     this.emitProgress({ filePath, phase: 'chunking', chunksProcessed: 0, chunksTotal: 0, queueLength: this.queue.length });
-    const rawChunks = splitIntoChunks(text);
-
-    // Prepend per-chunk metadata so the embedding captures document identity.
-    // This lets the vector search associate content with its source file —
-    // e.g. a chunk that's just a number becomes retrievable by file name.
-    const fileName = path.basename(relativePath);
-    const totalChunks = rawChunks.length;
-    const chunks = rawChunks.map((c) => ({
-      ...c,
-      text: `<metadata>\nfile: ${relativePath}\nname: ${fileName}\ntype: ${fileType}\nchunk: ${c.index + 1} of ${totalChunks}\n</metadata>\n\n${c.text}`,
-    }));
+    const chunks = splitIntoChunks(text);
 
     // 7. Embed all chunks
     const embeddedChunks: Array<{ chunkId: string; text: string; embedding: number[] }> = [];
@@ -162,7 +161,11 @@ export class Indexer {
         queueLength: this.queue.length,
       });
       const embedding = await this.embedder.getEmbedding(chunks[i].text);
-      embeddedChunks.push({ chunkId: makeChunkId(chunks[i].text), text: chunks[i].text, embedding });
+      embeddedChunks.push({
+        chunkId: makeChunkId(docId, i, chunks[i].text),
+        text: chunks[i].text,
+        embedding,
+      });
     }
 
     // 8. Store

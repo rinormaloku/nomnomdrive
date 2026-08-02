@@ -7,7 +7,7 @@
 <div class="header">
   <div class="header-left">
     <span class="header-logo">
-      <Bot size={22} blink />
+      <Bot size={26} blink />
     </span>
     <span class="header-title">NomNomDrive</span>
   </div>

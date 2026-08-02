@@ -30,6 +30,7 @@ import { ChatEngineProxy, createChatEngine } from './chat-engine';
 import { TunnelClient } from './tunnel-client';
 import { refreshAccessToken } from './cloud-auth';
 import type { IndexingProgress, TunnelStatus } from '@nomnomdrive/shared';
+import { SUPPORTED_EXTENSIONS } from '@nomnomdrive/shared';
 import {
   loadCloudCredentials,
   saveCloudCredentials,
@@ -148,8 +149,10 @@ function createMainWindow(): BrowserWindow {
     'icon.png',
   );
   const win = new BrowserWindow({
-    width: 900,
-    height: 600,
+    // Wide enough for the two-column home layout — the renderer stacks it below 900px.
+    // Height stays under 768 so the window still fits a small laptop screen.
+    width: 1140,
+    height: 720,
     minWidth: 520,
     minHeight: 460,
     show: false,
@@ -879,6 +882,21 @@ app.whenReady().then(async () => {
   ipcMain.handle('open-folder-dialog', async () => {
     const result = await dialog.showOpenDialog(mainWindow!, { properties: ['openDirectory'] });
     return result.canceled ? null : result.filePaths[0];
+  });
+
+  // Picker behind the home drop-zone. Returns the chosen paths; the renderer
+  // then feeds them to 'drop:copy-to-watch', the same as a drag and drop.
+  ipcMain.handle('open-files-dialog', async () => {
+    const result = await dialog.showOpenDialog(mainWindow!, {
+      title: 'Add files to NomNomDrive',
+      buttonLabel: 'Feed NomNom',
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        { name: 'Documents', extensions: SUPPORTED_EXTENSIONS.map((e) => e.replace(/^\./, '')) },
+        { name: 'All files', extensions: ['*'] },
+      ],
+    });
+    return result.canceled ? [] : result.filePaths;
   });
 
   ipcMain.handle('drop:copy-to-watch', async (_event, filePaths: string[]) => {

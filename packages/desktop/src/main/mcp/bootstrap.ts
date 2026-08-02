@@ -6,9 +6,8 @@ import type { AppConfig } from '../config';
 import type { Store } from '../store';
 import type { IEmbedder } from '../embedder';
 import { registerSearchTool } from './tools/search.tool';
-import { registerFoldersTool } from './tools/folders.tool';
 import { registerFilesTool } from './tools/files.tool';
-import { registerDocumentTool } from './tools/document.tool';
+import { registerReadTool } from './tools/read.tool';
 
 function buildMcpServer(store: Store, embedder: IEmbedder): McpServer {
   const server = new McpServer({
@@ -16,10 +15,12 @@ function buildMcpServer(store: Store, embedder: IEmbedder): McpServer {
     version: MCP_SERVER_VERSION,
   });
 
+  // Three tools: find it, see what exists, read it. list_folders folded into
+  // list_files (folders are a handful of watch roots — a header line, not a
+  // tool), and get_document folded into read_document's optional range.
   registerSearchTool(server, store, embedder);
-  registerFoldersTool(server, store);
   registerFilesTool(server, store);
-  registerDocumentTool(server, store);
+  registerReadTool(server, store);
 
   return server;
 }

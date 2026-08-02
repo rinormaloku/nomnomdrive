@@ -25,14 +25,49 @@ export interface ChunkRecord {
   syncedVersion: number;
 }
 
+/** A single chunk hit, as returned by the vector or keyword retriever. */
 export interface SearchResult {
   chunkId: string;
   docId: string;
+  /** Bare file name — callers address documents by name, never by path. */
   filename: string;
   content: string;
+  /** Cosine similarity for vector hits; 0 for keyword-only hits. */
   score: number;
   chunkIndex: number;
   fileType: string;
+  totalChunks: number;
+  /** Folder-qualified path, kept internally for filtering and disambiguation. */
+  matchPath: string;
+}
+
+/**
+ * Adjacent chunk hits from one document, merged and padded with neighbours.
+ * This is what search_documents actually reports — a bare 500-char chunk is
+ * usually too small to answer from.
+ */
+export interface SearchPassage {
+  docId: string;
+  filename: string;
+  fileType: string;
+  /** 1-based, inclusive — the range to pass back to read_document. */
+  fromChunk: number;
+  toChunk: number;
+  totalChunks: number;
+  /** Best score among the hits merged into this passage. */
+  score: number;
+  content: string;
+}
+
+/** A resolved slice of one document's chunks. */
+export interface ChunkRange {
+  docId: string;
+  filename: string;
+  fileType: string;
+  fromChunk: number;
+  toChunk: number;
+  totalChunks: number;
+  content: string;
 }
 
 export interface IndexingProgress {

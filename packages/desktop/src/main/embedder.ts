@@ -36,10 +36,17 @@ type Llama = {
   gpu: string | false;
 };
 
-/** Matryoshka truncation: slice to `dim` and L2-renormalize. No-op if `dim` is unset or not smaller. */
-function truncateAndNormalize(vector: number[], dim?: number): number[] {
-  if (!dim || dim >= vector.length) return vector;
-  const truncated = vector.slice(0, dim);
+/**
+ * Truncates to `dim` (Matryoshka) when set, then always L2-normalizes.
+ *
+ * Normalization is mandatory, not optional: `vec_chunks` is a vec0 table with
+ * the default L2 distance metric. On unit vectors L2 rank order matches cosine
+ * rank order, so normalizing here is what makes the KNN search semantically
+ * correct. It also lets `Store.searchHybrid` map distance back to a cosine
+ * score. Raw GGUF embeddings arrive with norms in the 45–85 range.
+ */
+export function truncateAndNormalize(vector: number[], dim?: number): number[] {
+  const truncated = dim && dim < vector.length ? vector.slice(0, dim) : vector;
   const norm = Math.sqrt(truncated.reduce((sum, v) => sum + v * v, 0));
   return norm === 0 ? truncated : truncated.map((v) => v / norm);
 }
@@ -216,7 +223,9 @@ export class RemoteEmbedder implements IEmbedder {
 
   async getEmbedding(text: string): Promise<number[]> {
     if (!this.ready) throw new Error('RemoteEmbedder not initialized');
-    return this.fetchEmbedding(text);
+    // Normalize for the same reason LocalEmbedder does — vec_chunks ranks by L2.
+    // OpenAI already returns unit vectors, so this is a no-op there; Gemini does not.
+    return truncateAndNormalize(await this.fetchEmbedding(text));
   }
 
   async getEmbeddings(texts: string[]): Promise<number[][]> {

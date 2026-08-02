@@ -87,6 +87,7 @@ declare global {
       configGet: () => Promise<unknown>;
       configSave: (updates: unknown) => Promise<{ restartRequired: boolean }>;
       openFolderDialog: () => Promise<string | null>;
+      openFilesDialog: () => Promise<string[]>;
       copyToWatchFolder: (filePaths: string[]) => Promise<{
         success: boolean;
         error?: string;
@@ -259,6 +260,7 @@ export const nomnom = {
   configGet: () => window.nomnom.configGet(),
   configSave: (updates: unknown) => window.nomnom.configSave(updates),
   openFolderDialog: () => window.nomnom.openFolderDialog(),
+  openFilesDialog: () => window.nomnom.openFilesDialog(),
   copyToWatchFolder: (filePaths: string[]) => window.nomnom.copyToWatchFolder(filePaths),
   getPathForFile: (file: File) => window.nomnom.getPathForFile(file),
 };

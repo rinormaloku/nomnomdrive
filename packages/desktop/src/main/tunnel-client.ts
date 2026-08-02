@@ -4,11 +4,10 @@ import type { IEmbedder } from './embedder';
 import type { TunnelRequest, TunnelToolCall, TunnelToolResponse, TunnelPong, TunnelStatus } from '@nomnomdrive/shared';
 import {
   executeSearchDocuments,
-  executeListFolders,
   executeListFiles,
-  executeGetDocument,
+  executeReadDocument,
 } from './mcp/tools/handlers';
-import type { SearchDocumentsInput, GetDocumentInput, ListFilesInput } from '@nomnomdrive/shared';
+import type { SearchDocumentsInput, ReadDocumentInput, ListFilesInput } from '@nomnomdrive/shared';
 
 const MIN_BACKOFF_MS = 1_000;
 const MAX_BACKOFF_MS = 30_000;
@@ -165,19 +164,16 @@ export class TunnelClient {
             msg.args as SearchDocumentsInput,
           );
           break;
-        case 'list_folders':
-          response.mcpResult = await executeListFolders(this.store);
-          break;
         case 'list_files':
           response.mcpResult = await executeListFiles(
             this.store,
             msg.args as ListFilesInput,
           );
           break;
-        case 'get_document':
-          response.mcpResult = await executeGetDocument(
+        case 'read_document':
+          response.mcpResult = await executeReadDocument(
             this.store,
-            msg.args as GetDocumentInput,
+            msg.args as ReadDocumentInput,
           );
           break;
         default:

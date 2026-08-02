@@ -10,7 +10,6 @@
     ArrowUp,
     ChevronRight,
     Search,
-    FolderTree,
     Files,
     FileText,
     Wrench,
@@ -225,60 +224,101 @@
   type Chunk = {
     n: number;
     filename: string;
-    fileType: string;
+    /** e.g. "chunks 12–14 of 48" — where in the file this passage came from. */
+    location: string;
     score: number | null;
     content: string;
   };
 
-  const CHUNK_CAP = 4000; // per-chunk character cap so the DOM stays sane
-  const RAW_CAP = 8000; // cap for the raw-text fallback
+  // Tool output is shown verbatim — no character caps. The panel exists to show
+  // exactly what the agent received, so silently dropping the tail would make it
+  // lie about the input the model actually worked from. Long passages are still
+  // visually clamped behind a "Show more" toggle, which hides text without
+  // discarding it.
   const CLAMP_AT = 200; // longer snippets get a "Show more" toggle
 
-  // `[1] boiler-manual.pdf (pdf, score: 0.913)` — the header line each
-  // search_documents result block starts with.
-  const CHUNK_HEAD = /^\[(\d+)\]\s+(.+?)\s+\(([^()]*?),\s*score:\s*(-?[\d.]+)\)$/;
+  // `### 1. boiler-manual.pdf — chunks 12–14 of 48 (score 0.71)` — the heading
+  // each search_documents passage starts with. Keyword-only hits carry
+  // "(keyword match)" instead of a score.
+  const PASSAGE_HEAD =
+    /^###\s+(\d+)\.\s+(.+?)\s+—\s+(chunks?\s+[\d–-]+\s+of\s+\d+)\s+\((?:score\s+(-?[\d.]+)|keyword match)\)\s*$/;
+
+  /** Every part of a search_documents result, so the card view drops nothing. */
+  type ParsedSearch = {
+    /** The "Found N passages for … — searched N chunks across M files." line. */
+    header: string;
+    chunks: Chunk[];
+    /** The trailing hint telling the agent what to call next. */
+    footer: string;
+  };
 
   /**
-   * Parse a search_documents result into chunk cards.
-   * Returns null for anything that isn't in that exact shape (list_folders
-   * output, "No relevant documents found.", errors, other tools) so the caller
-   * can fall back to plain text.
+   * Parse a search_documents result into passage cards.
+   * Returns null for anything that isn't in that shape (list_files output, a
+   * "No matches" message, errors, other tools) so the caller falls back to
+   * rendering the Markdown as plain text.
    */
-  function parseChunks(result: string): Chunk[] | null {
+  function parseChunks(result: string): ParsedSearch | null {
     if (typeof result !== 'string' || !result.trim()) return null;
     try {
-      const blocks = result.split('\n\n---\n\n');
       const chunks: Chunk[] = [];
-      for (const block of blocks) {
-        const nl = block.indexOf('\n');
-        const head = (nl === -1 ? block : block.slice(0, nl)).trim();
-        const m = CHUNK_HEAD.exec(head);
-        if (!m) return null;
-        const score = Number(m[4]);
-        chunks.push({
-          n: Number(m[1]),
-          filename: m[2],
-          fileType: (m[3] ?? '').trim(),
-          score: Number.isFinite(score) ? score : null,
-          content: (nl === -1 ? '' : block.slice(nl + 1)).trim().slice(0, CHUNK_CAP),
-        });
+      const preamble: string[] = [];
+      let current: Chunk | null = null;
+      let footer = '';
+      const body: string[] = [];
+
+      const flush = () => {
+        if (!current) return;
+        current.content = body.join('\n').trim();
+        chunks.push(current);
+        body.length = 0;
+      };
+
+      const lines = result.split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const m = PASSAGE_HEAD.exec(line.trim());
+        if (m) {
+          flush();
+          const score = m[4] === undefined ? NaN : Number(m[4]);
+          current = {
+            n: Number(m[1]),
+            filename: m[2],
+            location: m[3],
+            score: Number.isFinite(score) ? score : null,
+            content: '',
+          };
+        } else if (current) {
+          // The trailing "---" separates the passages from the footer hint,
+          // which is kept and shown below the cards rather than dropped.
+          if (line.trim() === '---') {
+            footer = lines.slice(i + 1).join('\n').trim();
+            break;
+          }
+          body.push(line);
+        } else {
+          preamble.push(line);
+        }
       }
-      return chunks.length > 0 ? chunks : null;
+      flush();
+
+      return chunks.length > 0
+        ? { header: preamble.join('\n').trim(), chunks, footer }
+        : null;
     } catch {
       return null;
     }
   }
 
-  const chunkCache = new Map<number, Chunk[] | null>();
+  const chunkCache = new Map<number, ParsedSearch | null>();
 
-  function chunksOf(tc: UiToolCall): Chunk[] | null {
+  function chunksOf(tc: UiToolCall): ParsedSearch | null {
     if (!chunkCache.has(tc.id)) chunkCache.set(tc.id, parseChunks(tc.result));
     return chunkCache.get(tc.id) ?? null;
   }
 
   function rawResult(tc: UiToolCall): string {
-    const text = typeof tc.result === 'string' ? tc.result : String(tc.result ?? '');
-    return text.length > RAW_CAP ? text.slice(0, RAW_CAP) + '\n…' : text;
+    return typeof tc.result === 'string' ? tc.result : String(tc.result ?? '');
   }
 
   function formatValue(v: unknown): string {
@@ -353,7 +393,7 @@
 {:else if loadError === '__not_configured__'}
   <div class="chat-empty-state">
     <span class="chat-empty-icon">
-      <MessageSquare size={28} color="#a69889" />
+      <MessageSquare size={28} color="var(--text-dim)" />
     </span>
     <h3 class="chat-empty-title">Chat is not enabled</h3>
     <p class="chat-empty-desc">
@@ -436,7 +476,8 @@
             {#if msg.toolCalls && msg.toolCalls.length > 0}
               <div class="tool-calls">
                 {#each msg.toolCalls as tc (tc.id)}
-                  {@const chunks = chunksOf(tc)}
+                  {@const parsed = chunksOf(tc)}
+                  {@const chunks = parsed?.chunks ?? null}
                   {@const open = !collapsedTools.has(tc.id)}
                   <div class="tool-card" class:open>
                     <button
@@ -450,11 +491,9 @@
                         <span class="tool-glyph">
                           {#if tc.name === 'search_documents'}
                             <Search size={12} />
-                          {:else if tc.name === 'list_folders'}
-                            <FolderTree size={12} />
                           {:else if tc.name === 'list_files'}
                             <Files size={12} />
-                          {:else if tc.name === 'get_document'}
+                          {:else if tc.name === 'read_document'}
                             <FileText size={12} />
                           {:else}
                             <Wrench size={12} />
@@ -464,7 +503,7 @@
                         {#if chunks}
                           <span class="tool-count">
                             {chunks.length}
-                            {chunks.length === 1 ? 'chunk' : 'chunks'}
+                            {chunks.length === 1 ? 'passage' : 'passages'}
                           </span>
                         {/if}
                       </span>
@@ -476,7 +515,10 @@
 
                     {#if open}
                       <div class="tool-body">
-                        {#if chunks}
+                        {#if chunks && parsed}
+                          {#if parsed.header}
+                            <p class="tool-note">{parsed.header}</p>
+                          {/if}
                           {#each chunks as c, i}
                             {@const key = `${tc.id}:${i}`}
                             {@const expanded = expandedChunks.has(key)}
@@ -484,8 +526,8 @@
                               <div class="chunk-head">
                                 <span class="chunk-n">{c.n}</span>
                                 <span class="chunk-file" title={c.filename}>{c.filename}</span>
-                                {#if c.fileType}
-                                  <span class="chunk-type">{c.fileType}</span>
+                                {#if c.location}
+                                  <span class="chunk-type">{c.location}</span>
                                 {/if}
                                 {#if c.score !== null}
                                   <span class="chunk-score" title="Relevance score">
@@ -509,6 +551,9 @@
                               {/if}
                             </div>
                           {/each}
+                          {#if parsed.footer}
+                            <p class="tool-note">{parsed.footer}</p>
+                          {/if}
                         {:else}
                           <pre class="tool-raw">{rawResult(tc)}</pre>
                         {/if}
@@ -817,6 +862,22 @@
 
   .chunk-more:hover {
     text-decoration: underline;
+  }
+
+  /* The header and footer lines of a search result, shown around the cards so
+     the card view accounts for the whole tool output. */
+  .tool-note {
+    margin: 0 0 6px;
+    font-size: 10.5px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    overflow-wrap: anywhere;
+    user-select: text;
+    -webkit-user-select: text;
+  }
+
+  .tool-note:last-child {
+    margin: 6px 0 0;
   }
 
   /* Fallback for results that aren't search chunks */

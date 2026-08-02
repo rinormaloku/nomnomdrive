@@ -52,23 +52,27 @@ export interface IChatEngine {
 
 const AGENT_SYSTEM_PROMPT = `/no_think
 You are a document assistant. The user's files are indexed and searchable via your tools:
-- search_documents: semantic search across all indexed documents
-- list_folders: see which folders are indexed
-- list_files: browse/filter indexed files by name, folder, or type
-- get_document: read the full text of a specific file
-ALWAYS use tools before answering — search_documents for content questions, list_files/list_folders for "what do I have" questions, get_document to read a specific file. Never say you lack access. Cite filenames in answers.`;
+- search_documents: find passages by meaning and keyword; returns file names and chunk numbers
+- list_files: see which files and folders are indexed
+- read_document: read a file by chunk range, using chunk numbers from search_documents
+ALWAYS use tools before answering — search_documents for content questions, list_files for "what do I have" questions, read_document when you need more text around a hit. Never say you lack access. Cite filenames in answers.`;
 
 const RAG_SYSTEM_PROMPT = `/no_think
 You are a helpful assistant that answers questions based on the user's documents. Use ONLY the provided context to answer. If the context doesn't contain relevant information, say so. Be concise and cite document names.`;
 
-/** Truncate tool output so it fits in the model's context window. */
-const MAX_TOOL_RESULT_CHARS = 1500;
-/** Remote models have large context windows — allow much bigger tool results. */
-const REMOTE_MAX_TOOL_RESULT_CHARS = 8000;
-function truncateResult(text: string, maxChars = MAX_TOOL_RESULT_CHARS): string {
-  if (text.length <= maxChars) return text;
-  return text.slice(0, maxChars) + '\n...(truncated)';
-}
+/**
+ * Tool results are passed through verbatim — to the model and to the UI alike.
+ *
+ * An earlier character cap (1500 local / 8000 remote) predates the current
+ * tools, which bound their own output by design: search_documents returns at
+ * most a fixed number of passages with a per-passage width ceiling, and
+ * read_document caps its range. Cutting that again by character count sliced
+ * through the middle of a passage and dropped the trailing instruction telling
+ * the agent what to call next — so the model saw one partial result and no way
+ * forward. Keeping the output identical also means what the UI shows is exactly
+ * what the agent received, which is what makes the tool panel useful for
+ * judging how an agent would behave.
+ */
 
 // ── LocalChatEngine (existing GGUF-based engine) ──────────────────────────────
 
@@ -204,9 +208,8 @@ export class LocalChatEngine implements IChatEngine {
           } catch (err: unknown) {
             text = `Error: ${err instanceof Error ? err.message : String(err)}`;
           }
-          const truncated = truncateResult(text);
-          onToolCall?.({ name: tool.name, params: args, result: truncated });
-          return truncated;
+          onToolCall?.({ name: tool.name, params: args, result: text });
+          return text;
         },
       });
     }
@@ -261,17 +264,16 @@ export class LocalChatEngine implements IChatEngine {
     onToolCall?: (event: ToolCallEvent) => void,
   ): Promise<string> {
     // Search for relevant documents
-    const searchResult = await executeSearchDocuments(this.store, this.embedder, { query, limit: 5 });
+    const searchResult = await executeSearchDocuments(this.store, this.embedder, { query });
     const context = searchResult.content[0].text;
-    const truncatedContext = truncateResult(context);
 
     // Emit a synthetic tool-call event so the UI shows what happened
-    onToolCall?.({ name: 'search_documents', params: { query }, result: truncatedContext });
+    onToolCall?.({ name: 'search_documents', params: { query }, result: context });
 
     // Build augmented prompt with retrieved context
     let augmented: string;
-    if (context !== 'No relevant documents found.') {
-      augmented = `Context from documents:\n\n${truncatedContext}\n\n---\n\nQuestion: ${query}`;
+    if (!context.startsWith('No matches for')) {
+      augmented = `Context from documents:\n\n${context}\n\n---\n\nQuestion: ${query}`;
     } else {
       augmented = query;
     }
@@ -419,9 +421,8 @@ export class RemoteChatEngine implements IChatEngine {
           } catch (err: unknown) {
             result = `Error: ${err instanceof Error ? err.message : String(err)}`;
           }
-          const truncated = truncateResult(result, REMOTE_MAX_TOOL_RESULT_CHARS);
-          onToolCall?.({ name: tc.name, params: this.safeParseJson(tc.arguments), result: truncated });
-          this.messages.push({ role: 'tool', tool_call_id: tc.id, content: truncated });
+          onToolCall?.({ name: tc.name, params: this.safeParseJson(tc.arguments), result });
+          this.messages.push({ role: 'tool', tool_call_id: tc.id, content: result });
         }
         // Loop back for next completion
         continue;

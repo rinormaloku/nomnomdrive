@@ -3,15 +3,18 @@ import * as fs from 'fs';
 import { loadConfig, getDbPath } from '../../main/config';
 import { Store } from '../../main/store';
 import { Embedder } from '../../main/embedder';
+import { compileFilter } from '../../main/doc-filter';
 
 export function searchCommand(): Command {
   return new Command('search')
-    .description('Semantic search over indexed documents')
+    .description('Hybrid (semantic + keyword) search over indexed documents')
     .argument('<query>', 'Search query')
     .option('-n, --limit <n>', 'Max results', '5')
-    .option('--folder <path>', 'Filter by folder path')
-    .option('--type <ext>', 'Filter by file extension (e.g. pdf)')
-    .action(async (query: string, opts: { limit: string; folder?: string; type?: string }) => {
+    .option(
+      '-f, --filter <pattern>',
+      'Narrow to matching files — plain text or regex, matched against file and folder name',
+    )
+    .action(async (query: string, opts: { limit: string; filter?: string }) => {
       const config = await loadConfig();
       const dbPath = getDbPath();
 
@@ -30,10 +33,12 @@ export function searchCommand(): Command {
 
       const vec = await embedder.embedQuery(query);
       const limit = Math.max(1, parseInt(opts.limit, 10) || 5);
-      const results = await store.searchSimilar(vec, limit, {
-        folder: opts.folder,
-        fileType: opts.type,
-      });
+      const results = await store.searchHybrid(
+        vec,
+        query,
+        limit,
+        opts.filter ? compileFilter(opts.filter) : undefined,
+      );
 
       process.stdout.write('\r              \r');
 
@@ -43,8 +48,8 @@ export function searchCommand(): Command {
         console.log(`\nTop ${results.length} result(s) for: "${query}"\n`);
         for (let i = 0; i < results.length; i++) {
           const r = results[i];
-          const score = r.score !== undefined ? `  score: ${r.score.toFixed(3)}` : '';
-          console.log(`${i + 1}. ${r.filename}${score}`);
+          const score = r.score > 0 ? `  score: ${r.score.toFixed(3)}` : '  (keyword match)';
+          console.log(`${i + 1}. ${r.filename}  chunk ${r.chunkIndex}/${r.totalChunks}${score}`);
           console.log(`   ${r.content.slice(0, 200).replace(/\n/g, ' ')}…\n`);
         }
       }

@@ -1,37 +1,48 @@
 import { z } from 'zod';
 
+/**
+ * Three tools, five parameters. Every identifier a tool accepts (`file`) is one
+ * the caller has seen in a previous tool's output, and `filter` means the same
+ * thing everywhere: a pattern narrowing which documents are in play.
+ */
+
+/** Shared by search_documents and list_files — same syntax, same semantics. */
+const filterParam = z
+  .string()
+  .optional()
+  .describe(
+    'Narrow to matching documents. Plain text matches a file name substring ' +
+      '("invoice"); regex is supported for anything more ("\\.pdf$", "2024|2025"). ' +
+      'Also matches the containing folder name, so "Work" limits the search to ' +
+      'that folder. Omit to search everything.',
+  );
+
 export const SearchDocumentsSchema = z.object({
-  query: z.string().describe('Natural language search query'),
-  limit: z.number().int().min(1).max(20).default(5).describe('Max results to return'),
-  folder: z.string().optional().describe('Filter to a specific folder path'),
-  file_type: z
+  query: z
     .string()
-    .optional()
-    .describe('Filter by file type: pdf, docx, md, txt, etc.'),
+    .describe('What to look for, in natural language. Combined semantic and keyword search.'),
+  filter: filterParam,
 });
 export type SearchDocumentsInput = z.infer<typeof SearchDocumentsSchema>;
 
-export const ListFoldersSchema = z.object({});
-export type ListFoldersInput = z.infer<typeof ListFoldersSchema>;
-
 export const ListFilesSchema = z.object({
-  pattern: z
-    .string()
-    .optional()
-    .describe('Substring to filter filenames (case-insensitive). Example: "report" matches "Q1-Report.pdf". Omit or pass "*" to list all files.'),
-  folder: z
-    .string()
-    .optional()
-    .describe('Filter to files in a specific folder path'),
-  file_type: z
-    .string()
-    .optional()
-    .describe('Filter by file type: pdf, docx, md, txt, etc.'),
-  limit: z.number().int().min(1).max(100).default(20).describe('Max files to return'),
+  filter: filterParam,
 });
 export type ListFilesInput = z.infer<typeof ListFilesSchema>;
 
-export const GetDocumentSchema = z.object({
-  filename: z.string().describe('Filename or relative path of the document to retrieve'),
+export const ReadDocumentSchema = z.object({
+  file: z.string().describe('File name, exactly as shown in search_documents or list_files output.'),
+  from: z
+    .number()
+    .int()
+    .min(1)
+    .optional()
+    .describe('First chunk to read (1-based). Chunk numbers come from search_documents.'),
+  to: z
+    .number()
+    .int()
+    .min(1)
+    .optional()
+    .describe('Last chunk to read, inclusive. Out-of-range values are clamped, never rejected.'),
 });
-export type GetDocumentInput = z.infer<typeof GetDocumentSchema>;
+export type ReadDocumentInput = z.infer<typeof ReadDocumentSchema>;

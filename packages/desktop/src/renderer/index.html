@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <!-- Same faces as the landing page (packages/cloud/public/landing.html). -->
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=DM+Sans:opsz,wght@9..40,400..800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <title>NomNomDrive</title>
 </head>
 <body>
@@ -32,6 +33,7 @@
         getCloudStatus: () => Promise.resolve({ mode: 'local', hasCredentials: false, serverUrl: null }),
         configGet: () => Promise.resolve({
           dropFolder: '/home/user/NomNomDrive', mcpPort: 23847, chatConfigured: true,
+          mcp: { port: 23847 },
           watch: { paths: ['/home/user/NomNomDrive'] },
           model: { localEmbed: 'mock-embed.gguf', localChat: 'mock-chat.gguf' },
           embed: { provider: 'local', model: 'mock-embed.gguf' },
@@ -42,6 +44,7 @@
         openExternalUrl: () => {},
         openFile: () => {},
         openFolderDialog: () => Promise.resolve(null),
+        openFilesDialog: () => Promise.resolve([]),
         copyToWatchFolder: () => Promise.resolve({ success: true, results: [] }),
         cloudLogin: () => Promise.resolve({ success: true }),
         cloudLogout: () => Promise.resolve(),
@@ -65,6 +68,7 @@
         onConfig: (cb) => { setTimeout(() => cb({ dropFolder: '/home/user/NomNomDrive', mcpPort: 23847, chatConfigured: true }), 50); },
         onSetupProgress: noop, onSetupComplete: noop,
         onSetupError: noop, onSetupGpuFailed: noop, onCloudStatusChanged: noop,
+        onCloudTunnelStatus: noop,
         onChatChunk: noop, onChatToolCall: noop, onChatModelState: noop,
         onUpdateAvailable: noop, onUpdateDownloaded: noop,
       };

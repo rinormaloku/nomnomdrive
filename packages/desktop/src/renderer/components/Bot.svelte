@@ -50,7 +50,7 @@
       <path
         class="a"
         d="m172 334c-89.6 0-162-72.4-162-162 0-89.6 72.4-162 162-162 89.6 0 162 72.4 162 162 0 89.6-72.4 162-162 162z"
-        fill="#222"
+        fill="var(--mark-bg, #dfe5ee)"
       />
     {/if}
     <path
@@ -91,15 +91,15 @@
   {#if papers}
     <g clip-path="url(#{uid}-clip)">
       <g class="anim-paper-1">
-        <rect x="147" y="240" width="50" height="65" fill="white" rx="2" stroke="#e5ddd4" stroke-width="1" />
-        <line x1="154" y1="255" x2="190" y2="255" stroke="#a69889" stroke-width="2" />
-        <line x1="154" y1="265" x2="182" y2="265" stroke="#a69889" stroke-width="2" />
-        <line x1="154" y1="275" x2="187" y2="275" stroke="#a69889" stroke-width="2" />
+        <rect x="147" y="240" width="50" height="65" fill="white" rx="2" stroke="var(--border, #e7eaf0)" stroke-width="1" />
+        <line x1="154" y1="255" x2="190" y2="255" stroke="var(--text-dim, #8b95a8)" stroke-width="2" />
+        <line x1="154" y1="265" x2="182" y2="265" stroke="var(--text-dim, #8b95a8)" stroke-width="2" />
+        <line x1="154" y1="275" x2="187" y2="275" stroke="var(--text-dim, #8b95a8)" stroke-width="2" />
       </g>
       <g class="anim-paper-2">
-        <rect x="157" y="240" width="45" height="60" fill="#faf6f1" rx="2" transform="rotate(5,179,270)" stroke="#e5ddd4" stroke-width="1" />
-        <line x1="162" y1="255" x2="192" y2="255" stroke="#a69889" stroke-width="2" transform="rotate(5,179,270)" />
-        <line x1="162" y1="265" x2="187" y2="265" stroke="#a69889" stroke-width="2" transform="rotate(5,179,270)" />
+        <rect x="157" y="240" width="45" height="60" fill="var(--bg, #f6f7f9)" rx="2" transform="rotate(5,179,270)" stroke="var(--border, #e7eaf0)" stroke-width="1" />
+        <line x1="162" y1="255" x2="192" y2="255" stroke="var(--text-dim, #8b95a8)" stroke-width="2" transform="rotate(5,179,270)" />
+        <line x1="162" y1="265" x2="187" y2="265" stroke="var(--text-dim, #8b95a8)" stroke-width="2" transform="rotate(5,179,270)" />
       </g>
     </g>
   {/if}

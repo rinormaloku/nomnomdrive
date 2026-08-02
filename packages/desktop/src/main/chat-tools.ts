@@ -2,16 +2,18 @@ import type { Store } from './store';
 import type { IEmbedder } from './embedder';
 import {
   executeSearchDocuments,
-  executeListFolders,
   executeListFiles,
-  executeGetDocument,
+  executeReadDocument,
 } from './mcp/tools/handlers';
+import { SEARCH_TOOL_DESCRIPTION } from './mcp/tools/search.tool';
+import { LIST_FILES_TOOL_DESCRIPTION } from './mcp/tools/files.tool';
+import { READ_DOCUMENT_TOOL_DESCRIPTION } from './mcp/tools/read.tool';
 
 /**
  * Single source of truth for the tools the chat agent can call.
- * Mirrors the MCP server's tools (search.tool.ts, folders.tool.ts,
- * files.tool.ts, document.tool.ts) — same names, descriptions, and
- * parameters — so the built-in agent is as capable as any MCP client.
+ * Mirrors the MCP server's tools (search.tool.ts, files.tool.ts, read.tool.ts)
+ * — same names, descriptions, and parameters — so the built-in agent is as
+ * capable as any MCP client.
  */
 export type ChatToolDef = {
   name: string;
@@ -24,93 +26,75 @@ export type ChatToolDef = {
   execute: (store: Store, embedder: IEmbedder, args: Record<string, unknown>) => Promise<string>;
 };
 
-function clampLimit(value: unknown, min: number, max: number, fallback: number): number {
-  const n = typeof value === 'number' && Number.isFinite(value) ? Math.floor(value) : fallback;
-  return Math.max(min, Math.min(n, max));
-}
+const FILTER_PARAM = {
+  type: 'string',
+  description:
+    'Narrow to matching documents. Plain text matches a file name substring ("invoice"); ' +
+    'regex is supported ("\\.pdf$"). Also matches the folder name. Omit for everything.',
+};
 
 function optionalString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value : undefined;
 }
 
+function optionalChunkNumber(value: unknown): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return undefined;
+  return Math.max(1, Math.floor(value));
+}
+
 export const CHAT_TOOLS: ChatToolDef[] = [
   {
     name: 'search_documents',
-    description:
-      "Search the user's locally indexed documents using semantic similarity. Returns the most relevant text chunks with source filenames.",
+    description: SEARCH_TOOL_DESCRIPTION,
     parameters: {
       type: 'object',
       properties: {
-        query: { type: 'string', description: 'Natural language search query' },
-        limit: { type: 'number', description: 'Max results to return (1-20, default 5)' },
-        folder: { type: 'string', description: 'Filter to a specific folder path' },
-        file_type: { type: 'string', description: 'Filter by file type: pdf, docx, md, txt, etc.' },
+        query: { type: 'string', description: 'What to look for, in natural language.' },
+        filter: FILTER_PARAM,
       },
       required: ['query'],
     },
     async execute(store, embedder, args) {
       const result = await executeSearchDocuments(store, embedder, {
         query: String(args.query ?? ''),
-        limit: clampLimit(args.limit, 1, 20, 5),
-        folder: optionalString(args.folder),
-        file_type: optionalString(args.file_type),
+        filter: optionalString(args.filter),
       });
-      return result.content[0].text;
-    },
-  },
-  {
-    name: 'list_folders',
-    description:
-      "List all indexed folders and their document counts. Use this to understand what's available before searching.",
-    parameters: { type: 'object', properties: {} },
-    async execute(store) {
-      const result = await executeListFolders(store);
       return result.content[0].text;
     },
   },
   {
     name: 'list_files',
-    description:
-      'List indexed files with optional filtering by filename substring, folder, or file type.',
+    description: LIST_FILES_TOOL_DESCRIPTION,
     parameters: {
       type: 'object',
-      properties: {
-        pattern: {
-          type: 'string',
-          description:
-            'Substring to filter filenames (case-insensitive). Example: "report" matches "Q1-Report.pdf". Omit or pass "*" to list all files.',
-        },
-        folder: { type: 'string', description: 'Filter to files in a specific folder path' },
-        file_type: { type: 'string', description: 'Filter by file type: pdf, docx, md, txt, etc.' },
-        limit: { type: 'number', description: 'Max files to return (1-100, default 20)' },
-      },
+      properties: { filter: FILTER_PARAM },
     },
     async execute(store, _embedder, args) {
-      const result = await executeListFiles(store, {
-        pattern: optionalString(args.pattern),
-        folder: optionalString(args.folder),
-        file_type: optionalString(args.file_type),
-        limit: clampLimit(args.limit, 1, 100, 20),
-      });
+      const result = await executeListFiles(store, { filter: optionalString(args.filter) });
       return result.content[0].text;
     },
   },
   {
-    name: 'get_document',
-    description:
-      'Retrieve the full text content of a specific indexed document by filename or path.',
+    name: 'read_document',
+    description: READ_DOCUMENT_TOOL_DESCRIPTION,
     parameters: {
       type: 'object',
       properties: {
-        filename: {
+        file: {
           type: 'string',
-          description: 'Filename or relative path of the document to retrieve',
+          description: 'File name, exactly as shown by search_documents or list_files.',
         },
+        from: { type: 'number', description: 'First chunk to read (1-based).' },
+        to: { type: 'number', description: 'Last chunk to read, inclusive.' },
       },
-      required: ['filename'],
+      required: ['file'],
     },
     async execute(store, _embedder, args) {
-      const result = await executeGetDocument(store, { filename: String(args.filename ?? '') });
+      const result = await executeReadDocument(store, {
+        file: String(args.file ?? ''),
+        from: optionalChunkNumber(args.from),
+        to: optionalChunkNumber(args.to),
+      });
       return result.content[0].text;
     },
   },

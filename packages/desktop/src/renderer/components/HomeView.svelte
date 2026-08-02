@@ -21,6 +21,7 @@
   let dragCounter = 0;
   let nomming = $state(false);
   let nomTimer: ReturnType<typeof setTimeout> | null = null;
+  let picking = $state(false);
 
   const embedDownloading = $derived(
     $setupProgress.phase === 'embed' &&
@@ -74,6 +75,11 @@
         // skip files without a native path
       }
     }
+    await ingest(paths);
+  }
+
+  /** Copies paths into the watch folder. Shared by drag-and-drop and the picker. */
+  async function ingest(paths: string[]) {
     if (paths.length === 0) return;
 
     // Let the mascot chomp while the files are copied into the watch folder
@@ -92,6 +98,16 @@
       } else {
         showToast(`Nom! ${paths.length} ${paths.length > 1 ? 'files' : 'file'} gobbled up`);
       }
+    }
+  }
+
+  async function pickFiles() {
+    if (picking) return;
+    picking = true;
+    try {
+      await ingest(await nomnom.openFilesDialog());
+    } finally {
+      picking = false;
     }
   }
 
@@ -211,17 +227,50 @@
             {/if}
           </section>
 
-          <section class="home-card drop-card">
-            <span class="drop-card-icon">
-              <FolderOpen size={16} />
+          <!-- The whole card is the picker. "Open folder" is a separate action,
+               so it stops the click from bubbling up to the card. -->
+          <section
+            class="home-card drop-card"
+            class:busy={picking}
+            role="button"
+            tabindex="0"
+            title="Choose files to index"
+            onclick={pickFiles}
+            onkeydown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                pickFiles();
+              }
+            }}
+          >
+            <span class="drop-card-icon" aria-hidden="true">
+              <svg width="21" height="21" viewBox="0 0 24 24" fill="none">
+                <rect class="pg pg-l" x="4.5" y="7" width="9.5" height="12.5" rx="1.6"
+                  fill="currentColor" fill-opacity=".1" stroke="currentColor" stroke-opacity=".45" />
+                <rect class="pg pg-r" x="10" y="7" width="9.5" height="12.5" rx="1.6"
+                  fill="currentColor" fill-opacity=".1" stroke="currentColor" stroke-opacity=".45" />
+                <rect class="pg pg-c" x="7.25" y="4.5" width="9.5" height="12.5" rx="1.6"
+                  fill="currentColor" fill-opacity=".16" stroke="currentColor" stroke-opacity=".8" />
+                <path class="pg pg-c" d="M9.75 8.25h4.5M9.75 11h4.5M9.75 13.75h2.5"
+                  stroke="currentColor" stroke-opacity=".8" stroke-width="1.1" stroke-linecap="round" />
+              </svg>
             </span>
             <div class="drop-card-text">
-              <p class="drop-card-title">Drop files or folders anywhere in this window</p>
-              <p class="drop-card-sub">NomNom will index them so any agent can find answers.</p>
+              <p class="drop-card-title">Click or drop files to feed NomNom</p>
+              <p class="drop-card-sub">
+                They are copied into your NomNomDrive folder and indexed on this machine.
+              </p>
             </div>
-            <button class="drop-card-btn" onclick={openFolder} title="Open your NomNomDrive folder">
+            <button
+              class="drop-card-btn"
+              onclick={(e) => {
+                e.stopPropagation();
+                openFolder();
+              }}
+              title="Open your NomNomDrive folder"
+            >
               <FolderOpen size={13} />
-              Open Folder
+              Open folder
             </button>
           </section>
 

@@ -87,12 +87,29 @@ function mergeWithOverlap(
       current = combined;
     } else {
       merged.push(current);
-      // Build next chunk with overlap from end of current
-      const overlap = current.slice(Math.max(0, current.length - chunkOverlap));
+      // Carry the tail of the current chunk into the next one so a sentence
+      // straddling the boundary is still retrievable from either side. Shrink
+      // the overlap when `next` is already near full size, so the result never
+      // exceeds chunkSize.
+      const budget = Math.min(chunkOverlap, chunkSize - next.length - 1);
+      const overlap = budget > 0 ? tailWords(current, budget) : '';
       current = overlap ? overlap + '\n' + next : next;
     }
   }
 
   if (current) merged.push(current);
   return merged;
+}
+
+/**
+ * Last <= maxChars of `text`, cut on a word boundary.
+ * A mid-word cut ("...contribu") adds a junk token to the next chunk's
+ * embedding, which is exactly the kind of noise this pipeline is trying to
+ * remove. Falls back to a hard cut when there is no boundary to use.
+ */
+function tailWords(text: string, maxChars: number): string {
+  if (text.length <= maxChars) return text;
+  const tail = text.slice(text.length - maxChars);
+  const boundary = tail.search(/\s/);
+  return boundary === -1 ? tail : tail.slice(boundary + 1);
 }
