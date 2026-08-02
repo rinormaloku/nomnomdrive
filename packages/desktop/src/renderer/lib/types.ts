@@ -44,6 +44,7 @@ export type ModelOption = {
   label: string;
   size: string;
   recommended: boolean;
+  supportedDims?: number[];
 };
 
 export type SetupStatusData = {
@@ -80,7 +81,7 @@ export type SetupStoreState = {
 };
 
 export type EmbedConfigValue =
-  | { provider: 'local'; model: string }
+  | { provider: 'local'; model: string; truncateDim?: number }
   | { provider: 'openai'; model: string; apiKey: string; baseUrl?: string }
   | { provider: 'gemini'; model: string; apiKey: string };
 

@@ -3,6 +3,8 @@
 
   export let repoId = '';
   export let selectedFile = '';
+  /** Filename to preselect once the repo's file list loads (e.g. the catalog's recommended quant). */
+  export let preferredFile = '';
 
   type GgufFile = { filename: string; size: number };
 
@@ -26,8 +28,8 @@
     try {
       files = await nomnom.listGgufFiles(repo);
       lastFetched = repo;
-      // Reset selection when repo changes
-      selectedFile = '';
+      // Preselect the preferred (e.g. catalog-recommended) file if present, else reset to Auto.
+      selectedFile = preferredFile && files.some((f) => f.filename === preferredFile) ? preferredFile : '';
     } catch {
       error = true;
     } finally {

@@ -23,12 +23,12 @@ export interface CloudConfig {
 }
 
 export type EmbedConfig =
-  | { provider: 'local'; model: string }
+  | { provider: 'local'; model: string; truncateDim?: number }
   | { provider: 'openai'; model: string; apiKey: string; baseUrl?: string }
   | { provider: 'gemini'; model: string; apiKey: string };
 
 export type ChatConfig =
-  | { provider: 'local'; model: string }
+  | { provider: 'local'; model: string; contextSize?: number }
   | { provider: 'openai'; model: string; apiKey: string; baseUrl?: string };
 
 export interface AppConfig {
@@ -60,14 +60,18 @@ function serializeEmbedConfig(embed: EmbedConfig): Record<string, unknown> {
   if (embed.provider === 'gemini') {
     return { provider: 'gemini', model: embed.model, api_key: embed.apiKey };
   }
-  return { provider: 'local', model: embed.model };
+  return { provider: 'local', model: embed.model, ...(embed.truncateDim ? { truncate_dim: embed.truncateDim } : {}) };
 }
 
 function serializeChatConfig(chat: ChatConfig): Record<string, unknown> {
   if (chat.provider === 'openai') {
     return { provider: 'openai', model: chat.model, api_key: chat.apiKey, ...(chat.baseUrl ? { base_url: chat.baseUrl } : {}) };
   }
-  return { provider: 'local', model: chat.model };
+  return {
+    provider: 'local',
+    model: chat.model,
+    ...(chat.contextSize ? { context_size: chat.contextSize } : {}),
+  };
 }
 
 function parseChatConfig(raw: Record<string, unknown> | undefined): ChatConfig | undefined {
@@ -78,7 +82,8 @@ function parseChatConfig(raw: Record<string, unknown> | undefined): ChatConfig |
     return { provider: 'openai', model, apiKey: (raw.api_key as string) ?? '', baseUrl: raw.base_url as string | undefined };
   }
   if (provider === 'local') {
-    return { provider: 'local', model };
+    const contextSize = typeof raw.context_size === 'number' ? raw.context_size : undefined;
+    return { provider: 'local', model, ...(contextSize ? { contextSize } : {}) };
   }
   return undefined;
 }
@@ -94,7 +99,8 @@ function parseEmbedConfig(raw: Record<string, unknown> | undefined): EmbedConfig
     return { provider: 'gemini', model, apiKey: (raw.api_key as string) ?? '' };
   }
   if (provider === 'local') {
-    return { provider: 'local', model };
+    const truncateDim = typeof raw.truncate_dim === 'number' ? raw.truncate_dim : undefined;
+    return { provider: 'local', model, ...(truncateDim ? { truncateDim } : {}) };
   }
   return undefined;
 }

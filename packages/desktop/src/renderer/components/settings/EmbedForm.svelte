@@ -2,6 +2,15 @@
   import type { ModelOption, EmbedConfigValue } from '../../lib/types';
   import GgufPicker from './GgufPicker.svelte';
 
+  // Local duplicate of @nomnomdrive/shared's parseHfModelId — the renderer can't pull in the
+  // shared barrel (it re-exports config.ts/models.ts, which need Node's fs/path/os).
+  function parseHfModelId(id: string): { repo: string; filename: string } | null {
+    if (!id.startsWith('hf:')) return null;
+    const parts = id.slice(3).split('/');
+    if (parts.length < 2) return null;
+    return { repo: `${parts[0]}/${parts[1]}`, filename: parts.slice(2).join('/') };
+  }
+
   export let value: EmbedConfigValue = { provider: 'local', model: '' };
   export let catalog: ModelOption[] = [];
 
@@ -9,8 +18,8 @@
   let provider: 'local' | 'openai' | 'gemini' = value.provider;
   let localModel = value.provider === 'local' ? value.model : '';
   let localCustom = '';
-  let localIsCustom = false;
   let ggufFile = '';
+  let truncateDim: number | '' = value.provider === 'local' && value.truncateDim ? value.truncateDim : '';
   let openaiModel = value.provider === 'openai' ? value.model : 'text-embedding-3-small';
   let openaiKey = value.provider === 'openai' ? value.apiKey : '';
   let openaiBaseUrl = value.provider === 'openai' ? (value.baseUrl ?? '') : '';
@@ -21,7 +30,6 @@
   if (provider === 'local') {
     const inCatalog = catalog.some((m) => m.id === localModel);
     if (!inCatalog && localModel) {
-      localIsCustom = true;
       localCustom = localModel.startsWith('hf:') ? localModel.slice(3) : localModel;
       localModel = '__custom__';
     } else if (!localModel && catalog.length) {
@@ -29,29 +37,34 @@
     }
   }
 
-  function parseHfRepo(input: string): string | null {
-    let cleaned = input.trim();
-    if (cleaned.startsWith('hf:')) cleaned = cleaned.slice(3);
-    const parts = cleaned.split('/');
-    return parts.length === 2 && parts[0] && parts[1] ? parts.join('/') : null;
+  // Reset dims whenever the selected model changes — a different model has a different (or no) MRL range.
+  let lastLocalModel = localModel;
+  $: if (localModel !== lastLocalModel) {
+    lastLocalModel = localModel;
+    truncateDim = '';
   }
 
-  $: hfRepoId = localModel === '__custom__' ? parseHfRepo(localCustom) : null;
+  function parseCustomRepo(input: string): { repo: string; filename: string } | null {
+    const cleaned = input.trim().replace(/^hf:/, '');
+    return cleaned ? parseHfModelId('hf:' + cleaned) : null;
+  }
+
+  $: catalogEntry = localModel === '__custom__' ? undefined : catalog.find((m) => m.id === localModel);
+  $: parsedModel = localModel === '__custom__' ? parseCustomRepo(localCustom) : parseHfModelId(localModel);
+  $: hfRepoId = parsedModel?.repo ?? null;
+  $: preferredFile = parsedModel?.filename ?? '';
   $: if (hfRepoId === null) ggufFile = '';
 
   function syncValue() {
     if (provider === 'local') {
-      let model = localModel === '__custom__' ? localCustom.trim() : localModel;
-      // Auto-prepend hf: for org/repo patterns
-      if (localModel === '__custom__' && model && !model.startsWith('/') && !model.startsWith('hf:')) {
-        const repo = parseHfRepo(model);
-        if (repo) model = 'hf:' + model;
+      let model: string;
+      if (localModel === '__custom__') {
+        const repo = parseCustomRepo(localCustom)?.repo;
+        model = repo ? 'hf:' + repo + (ggufFile ? '/' + ggufFile : '') : localCustom.trim();
+      } else {
+        model = ggufFile && parsedModel ? 'hf:' + parsedModel.repo + '/' + ggufFile : localModel;
       }
-      // Append selected GGUF file to hf:org/repo
-      if (localModel === '__custom__' && ggufFile && parseHfRepo(localCustom)) {
-        model = 'hf:' + parseHfRepo(localCustom) + '/' + ggufFile;
-      }
-      value = { provider: 'local', model };
+      value = { provider: 'local', model, ...(truncateDim !== '' ? { truncateDim } : {}) };
     } else if (provider === 'openai') {
       value = { provider: 'openai', model: openaiModel, apiKey: openaiKey, ...(openaiBaseUrl ? { baseUrl: openaiBaseUrl } : {}) };
     } else {
@@ -59,7 +72,7 @@
     }
   }
 
-  $: { provider; localModel; localCustom; ggufFile; openaiModel; openaiKey; openaiBaseUrl; geminiModel; geminiKey; syncValue(); }
+  $: { provider; localModel; localCustom; ggufFile; truncateDim; openaiModel; openaiKey; openaiBaseUrl; geminiModel; geminiKey; syncValue(); }
 </script>
 
 <div class="embed-form">
@@ -92,9 +105,20 @@
           placeholder="org/repo (e.g. Qwen/Qwen3-Embedding-0.6B-GGUF)"
         />
       </div>
-      {#if hfRepoId}
-        <GgufPicker repoId={hfRepoId} bind:selectedFile={ggufFile} />
-      {/if}
+    {/if}
+    {#if hfRepoId}
+      <GgufPicker repoId={hfRepoId} {preferredFile} bind:selectedFile={ggufFile} />
+    {/if}
+    {#if catalogEntry?.supportedDims}
+      <div class="field">
+        <label class="field-label" for="embed-dims">Dimensions</label>
+        <select id="embed-dims" class="field-select" bind:value={truncateDim}>
+          <option value="">{catalogEntry.supportedDims[0]} (native, recommended)</option>
+          {#each catalogEntry.supportedDims.slice(1) as d}
+            <option value={d}>{d}</option>
+          {/each}
+        </select>
+      </div>
     {/if}
 
   {:else if provider === 'openai'}

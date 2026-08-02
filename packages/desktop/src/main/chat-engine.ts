@@ -3,13 +3,8 @@ import type { IEmbedder } from './embedder';
 import type { Store } from './store';
 import { resolveModelPath } from './models';
 import { getInstalledGpuType } from './gpu-manager';
-import {
-  executeSearchDocuments,
-  executeListFolders,
-  executeListFiles,
-  executeGetDocument,
-} from './mcp/tools/handlers';
-import fs from 'fs';
+import { executeSearchDocuments } from './mcp/tools/handlers';
+import { CHAT_TOOLS } from './chat-tools';
 
 // node-llama-cpp types (dynamic import for ESM compatibility)
 type LlamaChatSession = {
@@ -24,6 +19,7 @@ type LlamaChatSession = {
   dispose(): void;
 };
 type LlamaContext = {
+  contextSize: number;
   getSequence(): unknown;
   dispose(): Promise<void>;
 };
@@ -55,28 +51,26 @@ export interface IChatEngine {
 // ── Shared constants ──────────────────────────────────────────────────────────
 
 const AGENT_SYSTEM_PROMPT = `/no_think
-You are a document assistant. The user's files are indexed and searchable via your tools. ALWAYS call search_documents before answering. Never say you lack access — search first. Cite filenames in answers.`;
+You are a document assistant. The user's files are indexed and searchable via your tools:
+- search_documents: semantic search across all indexed documents
+- list_folders: see which folders are indexed
+- list_files: browse/filter indexed files by name, folder, or type
+- get_document: read the full text of a specific file
+ALWAYS use tools before answering — search_documents for content questions, list_files/list_folders for "what do I have" questions, get_document to read a specific file. Never say you lack access. Cite filenames in answers.`;
 
 const RAG_SYSTEM_PROMPT = `/no_think
 You are a helpful assistant that answers questions based on the user's documents. Use ONLY the provided context to answer. If the context doesn't contain relevant information, say so. Be concise and cite document names.`;
 
 /** Truncate tool output so it fits in the model's context window. */
 const MAX_TOOL_RESULT_CHARS = 1500;
-function truncateResult(text: string): string {
-  if (text.length <= MAX_TOOL_RESULT_CHARS) return text;
-  return text.slice(0, MAX_TOOL_RESULT_CHARS) + '\n...(truncated)';
+/** Remote models have large context windows — allow much bigger tool results. */
+const REMOTE_MAX_TOOL_RESULT_CHARS = 8000;
+function truncateResult(text: string, maxChars = MAX_TOOL_RESULT_CHARS): string {
+  if (text.length <= maxChars) return text;
+  return text.slice(0, maxChars) + '\n...(truncated)';
 }
 
 // ── LocalChatEngine (existing GGUF-based engine) ──────────────────────────────
-
-/**
- * Models under this file-size threshold use the simpler RAG pipeline
- * (pre-fetch context, stuff into prompt) because they can't reliably
- * handle structured function-calling output.
- * ~4 GB covers Q4-quantised models up to ~7-8B params.
- * Only models like Qwen3-8B+ or Llama 3.1 8B+ are reliable enough.
- */
-const AGENT_MODEL_SIZE_THRESHOLD = 4 * 1024 * 1024 * 1024; // 4 GB
 
 export class LocalChatEngine implements IChatEngine {
   private model: LlamaModel | null = null;
@@ -87,7 +81,10 @@ export class LocalChatEngine implements IChatEngine {
   private readonly embedder: IEmbedder;
   private readonly store: Store;
   private defineFn!: (def: { description?: string; params?: unknown; handler: (params: any) => any }) => unknown;
-  private useAgentMode = false;
+  // Agent (function-calling) mode is the default; we drop to RAG mode only if
+  // the loaded model turns out not to support function calling at runtime.
+  private useAgentMode = true;
+  private contextSize = 8192;
 
   constructor(config: AppConfig, embedder: IEmbedder, store: Store) {
     this.config = config;
@@ -110,14 +107,6 @@ export class LocalChatEngine implements IChatEngine {
     this.initPromise = (async () => {
       const modelPath = await resolveModelPath(this.config.model.localChat, onProgress);
 
-      // Decide mode based on model file size
-      try {
-        const stat = fs.statSync(modelPath);
-        this.useAgentMode = stat.size >= AGENT_MODEL_SIZE_THRESHOLD;
-      } catch {
-        this.useAgentMode = false;
-      }
-
       const systemPrompt = this.useAgentMode ? AGENT_SYSTEM_PROMPT : RAG_SYSTEM_PROMPT;
       console.log(`[ChatEngine] Mode: ${this.useAgentMode ? 'agent (function-calling)' : 'RAG (context-stuffing)'} for ${modelPath}`);
 
@@ -139,7 +128,22 @@ export class LocalChatEngine implements IChatEngine {
       console.log(`[ChatEngine] GPU backend: ${gpuBackend || 'CPU'}`);
       // Try loading with full GPU offload first, then progressively fewer GPU layers
       const gpuLayerOptions = [Infinity, 20, 10, 0];
-      const contextSizes = [8192, 4096, 2048];
+      const chatCfg = getChatConfig(this.config);
+      const configuredSize = chatCfg.provider === 'local' ? chatCfg.contextSize : undefined;
+      // First attempt: user-configured size, or auto-size to available memory
+      // (node-llama-cpp picks the largest context that fits, capped at 32k).
+      // Fallbacks: fixed ladder with memory safety checks disabled.
+      const contextAttempts: Array<{
+        contextSize: number | { min?: number; max?: number };
+        ignoreMemorySafetyChecks?: boolean;
+      }> = configuredSize
+        ? [{ contextSize: configuredSize, ignoreMemorySafetyChecks: true }]
+        : [{ contextSize: { min: 2048, max: 32768 } }];
+      for (const size of [8192, 4096, 2048]) {
+        if (size !== configuredSize) {
+          contextAttempts.push({ contextSize: size, ignoreMemorySafetyChecks: true });
+        }
+      }
       let loaded = false;
 
       for (const gpuLayers of gpuLayerOptions) {
@@ -147,14 +151,15 @@ export class LocalChatEngine implements IChatEngine {
           this.model = await (llama as { loadModel(opts: { modelPath: string; gpuLayers?: number }): Promise<LlamaModel> }).loadModel({ modelPath, gpuLayers });
           console.log(`[ChatEngine] Model loaded with gpuLayers=${gpuLayers}`);
 
-          for (const size of contextSizes) {
+          for (const attempt of contextAttempts) {
             try {
-              this.context = await this.model.createContext({ contextSize: size, ignoreMemorySafetyChecks: true });
-              console.log(`[ChatEngine] Context created with size ${size}`);
+              this.context = await this.model.createContext(attempt);
+              this.contextSize = this.context.contextSize;
+              console.log(`[ChatEngine] Context created with size ${this.contextSize}`);
               loaded = true;
               break;
             } catch {
-              console.warn(`[ChatEngine] Context size ${size} failed with gpuLayers=${gpuLayers}, trying smaller...`);
+              console.warn(`[ChatEngine] Context ${JSON.stringify(attempt.contextSize)} failed with gpuLayers=${gpuLayers}, trying smaller...`);
             }
           }
           if (loaded) break;
@@ -184,77 +189,29 @@ export class LocalChatEngine implements IChatEngine {
 
   private buildFunctions(onToolCall?: (event: ToolCallEvent) => void) {
     const { store, embedder, defineFn } = this;
+    const functions: Record<string, unknown> = {};
 
-    return {
-      search_documents: defineFn({
-        description: 'Search documents by query.',
-        params: {
-          type: 'object',
-          properties: {
-            query: { type: 'string' },
-            limit: { type: 'number' },
-          },
-          required: ['query'],
-        },
-        async handler(params: { query: string; limit?: number }) {
-          const safeLimit = Math.max(1, Math.min(params.limit ?? 3, 20));
-          const result = await executeSearchDocuments(store, embedder, { query: params.query, limit: safeLimit });
-          const text = result.content[0].text;
+    for (const tool of CHAT_TOOLS) {
+      const hasParams = Object.keys(tool.parameters.properties).length > 0;
+      functions[tool.name] = defineFn({
+        description: tool.description,
+        ...(hasParams ? { params: tool.parameters } : {}),
+        async handler(params: Record<string, unknown> | undefined) {
+          const args = params ?? {};
+          let text: string;
+          try {
+            text = await tool.execute(store, embedder, args);
+          } catch (err: unknown) {
+            text = `Error: ${err instanceof Error ? err.message : String(err)}`;
+          }
           const truncated = truncateResult(text);
-          onToolCall?.({ name: 'search_documents', params, result: truncated });
+          onToolCall?.({ name: tool.name, params: args, result: truncated });
           return truncated;
         },
-      }),
+      });
+    }
 
-      list_folders: defineFn({
-        description: 'List indexed folders.',
-        async handler() {
-          const result = await executeListFolders(store);
-          const text = result.content[0].text;
-          const truncated = truncateResult(text);
-          onToolCall?.({ name: 'list_folders', params: {}, result: truncated });
-          return truncated;
-        },
-      }),
-
-      list_files: defineFn({
-        description: 'List indexed files. Supports grep-like pattern filtering on filenames.',
-        params: {
-          type: 'object',
-          properties: {
-            pattern: { type: 'string' },
-            folder: { type: 'string' },
-            file_type: { type: 'string' },
-            limit: { type: 'number' },
-          },
-        },
-        async handler(params: { pattern?: string; folder?: string; file_type?: string; limit?: number }) {
-          const result = await executeListFiles(store, { ...params, limit: params.limit ?? 20 });
-          const text = result.content[0].text;
-          const truncated = truncateResult(text);
-          onToolCall?.({ name: 'list_files', params, result: truncated });
-          return truncated;
-        },
-      }),
-
-      get_document: defineFn({
-        description: 'Get full document text by filename.',
-        params: {
-          type: 'object',
-          properties: {
-            filename: { type: 'string' },
-          },
-          required: ['filename'],
-        },
-        async handler(params: { filename: string }) {
-          const result = await executeGetDocument(store, params);
-          const text = result.content[0].text;
-          const truncated = truncateResult(text);
-          onToolCall?.({ name: 'get_document', params, result: truncated });
-          return truncated;
-        },
-      }),
-    };
+    return functions;
   }
 
   async chat(
@@ -281,12 +238,20 @@ export class LocalChatEngine implements IChatEngine {
   ): Promise<string> {
     const functions = this.buildFunctions(onToolCall);
 
-    const { responseText } = await this.session!.promptWithMeta(query, {
-      functions,
-      onTextChunk: onChunk,
-    });
-
-    return responseText;
+    try {
+      const { responseText } = await this.session!.promptWithMeta(query, {
+        functions,
+        onTextChunk: onChunk,
+      });
+      return responseText;
+    } catch (err) {
+      // Some models/chat templates don't support function calling at all —
+      // permanently drop to RAG mode for this engine and retry the query.
+      console.warn(`[ChatEngine] Function calling failed, falling back to RAG mode: ${err}`);
+      this.useAgentMode = false;
+      await this.resetSession();
+      return this.chatRAG(query, onChunk, onToolCall);
+    }
   }
 
   /** RAG mode: pre-fetch context via search, stuff it into the prompt. */
@@ -324,7 +289,7 @@ export class LocalChatEngine implements IChatEngine {
     this.session?.dispose();
     await this.context?.dispose();
 
-    this.context = await this.model.createContext({ contextSize: 32768, ignoreMemorySafetyChecks: true });
+    this.context = await this.model.createContext({ contextSize: this.contextSize, ignoreMemorySafetyChecks: true });
 
     const systemPrompt = this.useAgentMode ? AGENT_SYSTEM_PROMPT : RAG_SYSTEM_PROMPT;
     const { LlamaChatSession: Session } = await (0, eval)('import("node-llama-cpp")');
@@ -364,61 +329,10 @@ type OaiMessage =
   | { role: 'assistant'; content: string | null; tool_calls?: Array<{ id: string; type: 'function'; function: { name: string; arguments: string } }> }
   | { role: 'tool'; tool_call_id: string; content: string };
 
-const REMOTE_TOOLS: OaiTool[] = [
-  {
-    type: 'function',
-    function: {
-      name: 'search_documents',
-      description: 'Semantic search across indexed documents. Returns matching chunks with scores.',
-      parameters: {
-        type: 'object',
-        properties: {
-          query: { type: 'string', description: 'Search query' },
-          limit: { type: 'number', description: 'Max results (1-20, default 5)' },
-        },
-        required: ['query'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'list_folders',
-      description: 'List all indexed folders with document and chunk counts.',
-      parameters: { type: 'object', properties: {} },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'list_files',
-      description: 'List indexed files with optional grep-like filtering. Use pattern to search filenames (case-insensitive substring match).',
-      parameters: {
-        type: 'object',
-        properties: {
-          pattern: { type: 'string', description: 'Grep-like pattern to filter filenames (case-insensitive substring)' },
-          folder: { type: 'string', description: 'Filter to files in a specific folder path' },
-          file_type: { type: 'string', description: 'Filter by file type: pdf, docx, md, txt, etc.' },
-          limit: { type: 'number', description: 'Max files to return (1-100, default 20)' },
-        },
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_document',
-      description: 'Get the full text content of a document by filename.',
-      parameters: {
-        type: 'object',
-        properties: {
-          filename: { type: 'string', description: 'Document filename to retrieve' },
-        },
-        required: ['filename'],
-      },
-    },
-  },
-];
+const REMOTE_TOOLS: OaiTool[] = CHAT_TOOLS.map((t) => ({
+  type: 'function' as const,
+  function: { name: t.name, description: t.description, parameters: t.parameters },
+}));
 
 const MAX_TOOL_ITERATIONS = 10;
 
@@ -505,7 +419,7 @@ export class RemoteChatEngine implements IChatEngine {
           } catch (err: unknown) {
             result = `Error: ${err instanceof Error ? err.message : String(err)}`;
           }
-          const truncated = truncateResult(result);
+          const truncated = truncateResult(result, REMOTE_MAX_TOOL_RESULT_CHARS);
           onToolCall?.({ name: tc.name, params: this.safeParseJson(tc.arguments), result: truncated });
           this.messages.push({ role: 'tool', tool_call_id: tc.id, content: truncated });
         }
@@ -593,34 +507,9 @@ export class RemoteChatEngine implements IChatEngine {
 
   private async executeTool(name: string, argsJson: string): Promise<string> {
     const args = this.safeParseJson(argsJson);
-
-    switch (name) {
-      case 'search_documents': {
-        const query = (args.query as string) ?? '';
-        const limit = Math.max(1, Math.min((args.limit as number) ?? 5, 20));
-        const result = await executeSearchDocuments(this.store, this.embedder, { query, limit });
-        return result.content[0].text;
-      }
-      case 'list_folders': {
-        const result = await executeListFolders(this.store);
-        return result.content[0].text;
-      }
-      case 'list_files': {
-        const pattern = args.pattern as string | undefined;
-        const folder = args.folder as string | undefined;
-        const fileType = args.file_type as string | undefined;
-        const limit = Math.max(1, Math.min((args.limit as number) ?? 20, 100));
-        const result = await executeListFiles(this.store, { pattern, folder, file_type: fileType, limit });
-        return result.content[0].text;
-      }
-      case 'get_document': {
-        const filename = (args.filename as string) ?? '';
-        const result = await executeGetDocument(this.store, { filename });
-        return result.content[0].text;
-      }
-      default:
-        return `Unknown tool: ${name}`;
-    }
+    const tool = CHAT_TOOLS.find((t) => t.name === name);
+    if (!tool) return `Unknown tool: ${name}`;
+    return tool.execute(this.store, this.embedder, args);
   }
 
   private safeParseJson(json: string): Record<string, unknown> {

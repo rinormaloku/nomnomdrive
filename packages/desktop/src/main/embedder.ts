@@ -36,6 +36,14 @@ type Llama = {
   gpu: string | false;
 };
 
+/** Matryoshka truncation: slice to `dim` and L2-renormalize. No-op if `dim` is unset or not smaller. */
+function truncateAndNormalize(vector: number[], dim?: number): number[] {
+  if (!dim || dim >= vector.length) return vector;
+  const truncated = vector.slice(0, dim);
+  const norm = Math.sqrt(truncated.reduce((sum, v) => sum + v * v, 0));
+  return norm === 0 ? truncated : truncated.map((v) => v / norm);
+}
+
 export class LocalEmbedder implements IEmbedder {
   private llama: Llama | null = null;
   private model: LlamaModel | null = null;
@@ -46,12 +54,16 @@ export class LocalEmbedder implements IEmbedder {
   private readonly config: AppConfig;
   /** Asymmetric retrieval prefixes required by the configured model (empty for most models). */
   private readonly prefixes: EmbedPrefixes;
+  /** Matryoshka truncation dimension, if the user chose one smaller than the model's native output. */
+  private readonly truncateDim?: number;
   /** Resolves when the model is ready; null if initialize() has not been called. */
   private readyPromise: Promise<void> | null = null;
 
   constructor(config: AppConfig) {
     this.config = config;
     this.prefixes = getEmbedPrefixes(this.resolveModelId());
+    const embedCfg = getEmbedConfig(config);
+    this.truncateDim = embedCfg.provider === 'local' ? embedCfg.truncateDim : undefined;
   }
 
   private resolveModelId(): string {
@@ -87,7 +99,9 @@ export class LocalEmbedder implements IEmbedder {
       // Probe actual output dims so callers can validate against the DB schema.
       // Use the document-prefixed path so the probe matches real usage.
       const probe = await this.context.getEmbeddingFor(this.prefixes.document + 'test');
-      this.dims = probe.vector.length;
+      this.dims = this.truncateDim && this.truncateDim < probe.vector.length
+        ? this.truncateDim
+        : probe.vector.length;
     })();
     return this.readyPromise;
   }
@@ -99,7 +113,7 @@ export class LocalEmbedder implements IEmbedder {
       await this.readyPromise;
     }
     const result = await this.context!.getEmbeddingFor(text);
-    return Array.from(result.vector);
+    return truncateAndNormalize(Array.from(result.vector), this.truncateDim);
   }
 
   async getEmbedding(text: string): Promise<number[]> {

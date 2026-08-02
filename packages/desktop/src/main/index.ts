@@ -69,7 +69,7 @@ function chatSettingsKey(cfg: AppConfig): string {
 function embedSettingsKey(cfg: AppConfig): string {
   const embed = getEmbedConfig(cfg);
   if (embed.provider === 'local') {
-    return `local|${embed.model}|${cfg.model.localEmbed}`;
+    return `local|${embed.model}|${embed.truncateDim ?? ''}|${cfg.model.localEmbed}`;
   }
   return `${embed.provider}|${embed.model}|${embed.apiKey}|${'baseUrl' in embed ? (embed.baseUrl ?? '') : ''}`;
 }

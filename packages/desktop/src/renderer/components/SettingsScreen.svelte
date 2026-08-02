@@ -193,7 +193,9 @@
       };
       const embedChanged =
         embedValue.provider !== (appConfig.embed?.provider ?? 'local') ||
-        embedValue.model !== (appConfig.embed?.model ?? appConfig.model.localEmbed);
+        embedValue.model !== (appConfig.embed?.model ?? appConfig.model.localEmbed) ||
+        (embedValue.provider === 'local' ? embedValue.truncateDim : undefined) !==
+          (appConfig.embed?.provider === 'local' ? appConfig.embed.truncateDim : undefined);
 
       const result = await nomnom.configSave(updates);
       if (embedChanged) {
