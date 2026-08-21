@@ -44,7 +44,47 @@ export type ModelOption = {
   label: string;
   size: string;
   recommended: boolean;
+  runtimeGb?: number;
   supportedDims?: number[];
+};
+
+// Mirrors @nomnomdrive/shared's hardware-tiers.ts. The renderer can't import the
+// shared barrel (it re-exports config.ts/models.ts, which need Node's fs/path/os),
+// so these types are duplicated here — same reason as parseHfModelId in EmbedForm.
+export type MemoryKind = 'vram' | 'unified' | 'ram';
+
+export type HardwareProfile = {
+  vramBytes: number;
+  ramBytes: number;
+  unified: boolean;
+  gpuNames: string[];
+  source: string;
+};
+
+export type ModelPick = {
+  embedModelId: string;
+  embedLabel: string;
+  chatModelId: string | null;
+  chatLabel: string | null;
+  estimatedGb: number;
+};
+
+export type HardwareRecommendation = {
+  tier: 'workstation' | 'high' | 'balanced' | 'light' | 'assisted' | 'api-only';
+  tierLabel: string;
+  totalGb: number;
+  budgetGb: number;
+  memoryKind: MemoryKind;
+  local: ModelPick | null;
+  localLight: ModelPick | null;
+  preferred: 'local' | 'api';
+  headline: string;
+  detail: string;
+};
+
+export type HardwareReport = {
+  profile: HardwareProfile;
+  recommendation: HardwareRecommendation;
 };
 
 export type SetupStatusData = {

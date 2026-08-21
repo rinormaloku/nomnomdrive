@@ -1,7 +1,7 @@
 import { config, documents, processedFiles, stats, syncActive, syncProgress, updateReady, setupStatus, setupProgress, setupGpuFailed, modelError, chatModelState } from './stores';
 import type { ChatModelState, TunnelStatus } from './stores';
 import { basename } from './utils';
-import type { Document, SetupStatusData, SetupProgressData, ModelOption, SetupCatalog } from './types';
+import type { Document, SetupStatusData, SetupProgressData, ModelOption, SetupCatalog, HardwareReport } from './types';
 
 declare global {
   interface Window {
@@ -28,6 +28,7 @@ declare global {
       // Setup / Onboarding
       setupCheck: () => Promise<SetupStatusData>;
       setupGetCatalog: () => Promise<SetupCatalog>;
+      hardwareDetect: () => Promise<HardwareReport>;
       setupStart: (options: {
         watchPath: string;
         embedModelId: string;
@@ -240,6 +241,7 @@ export const nomnom = {
   chatDefaultModelStatus: () => window.nomnom.chatDefaultModelStatus(),
   setupCheck: () => window.nomnom.setupCheck(),
   setupGetCatalog: () => window.nomnom.setupGetCatalog(),
+  hardwareDetect: () => window.nomnom.hardwareDetect(),
   setupStart: (options: { watchPath: string; embedModelId: string; embedConfig?: unknown; chatModelId: string; chatConfig?: unknown; mcpPort: number; gpuType?: string }) =>
     window.nomnom.setupStart(options),
   setupCancel: () => window.nomnom.setupCancel(),

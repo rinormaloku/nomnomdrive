@@ -21,6 +21,7 @@ import {
   downloadGpuBinary,
   removeGpuBinary,
 } from './gpu-manager';
+import { detectHardware, resetHardwareCache } from './hardware-detect';
 import { Watcher } from './watcher';
 import { Indexer } from './indexer';
 import { IpcServer } from './ipc-server';
@@ -43,6 +44,7 @@ import {
   CHAT_MODELS,
   DEFAULT_CHAT_MODEL,
   listHuggingFaceGgufFiles,
+  recommendForHardware,
   modelExists,
   getEmbedConfig,
   getChatConfig,
@@ -250,6 +252,11 @@ ipcMain.handle('setup:get-catalog', () => {
   };
 });
 
+ipcMain.handle('hardware:detect', async () => {
+  const profile = await detectHardware();
+  return { profile, recommendation: recommendForHardware(profile) };
+});
+
 let setupAbortController: AbortController | null = null;
 
 ipcMain.handle('setup:start', async (_event, options: SetupOptions & { embedConfig?: unknown; chatConfig?: unknown; gpuType?: string }) => {
@@ -403,6 +410,8 @@ ipcMain.handle('gpu:install', async (_event, gpuType: string) => {
 
     // Clear the crash marker so model loading is attempted on next restart
     clearModelCrashMarker();
+    // llama.cpp can now report VRAM directly, which beats every platform probe.
+    resetHardwareCache();
     return { success: true };
   } catch (err: unknown) {
     return { success: false, error: err instanceof Error ? err.message : String(err) };
@@ -412,6 +421,7 @@ ipcMain.handle('gpu:install', async (_event, gpuType: string) => {
 ipcMain.handle('gpu:remove', async (_event, gpuType: string) => {
   try {
     await removeGpuBinary(gpuType as 'vulkan' | 'cuda');
+    resetHardwareCache();
     return { success: true };
   } catch (err: unknown) {
     return { success: false, error: err instanceof Error ? err.message : String(err) };

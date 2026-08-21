@@ -1,7 +1,7 @@
 export const DEFAULT_EMBED_MODEL =
   'hf:jinaai/jina-embeddings-v5-text-small-text-matching-GGUF/v5-small-text-matching-Q8_0.gguf';
 export const DEFAULT_EMBED_DIMS = 1024;
-export const DEFAULT_CHAT_MODEL = 'hf:unsloth/gemma-3-4b-it-GGUF/gemma-3-4b-it-Q4_K_M.gguf';
+export const DEFAULT_CHAT_MODEL = 'hf:unsloth/gemma-4-E2B-it-GGUF/gemma-4-E2B-it-Q3_K_M.gguf';
 export const DEFAULT_OPENAI_EMBED_MODEL = 'text-embedding-3-small';
 export const DEFAULT_GEMINI_EMBED_MODEL = 'text-embedding-004';
 export const DEFAULT_MCP_PORT = 23847;

@@ -3,7 +3,7 @@
   import { showToast, setupProgress, syncActive, syncProgress, activeView } from '../lib/stores';
   import { nomnom } from '../lib/nomnom';
   import EmbedForm from './settings/EmbedForm.svelte';
-  import type { EmbedConfigValue, ChatConfigValue } from '../lib/types';
+  import type { EmbedConfigValue, ChatConfigValue, HardwareReport, ModelOption } from '../lib/types';
   import ChatModelForm from './settings/ChatModelForm.svelte';
   import WatchFoldersForm from './settings/WatchFoldersForm.svelte';
   import ToggleSwitch from './settings/ToggleSwitch.svelte';
@@ -18,7 +18,7 @@
     mcp: { port: number };
   };
 
-  type CatalogEntry = { id: string; label: string; size: string; recommended: boolean };
+  type CatalogEntry = ModelOption;
 
   let loading = true;
   let saving = false;
@@ -36,6 +36,9 @@
 
   // Launch at startup
   let openAtLogin = true;
+
+  // Hardware profile — drives the "fits your machine" hints on the model forms
+  let hardware: HardwareReport | null = null;
 
   // GPU state
   let gpuInstalled: string | null = null;
@@ -100,10 +103,24 @@
       gpuValidated = gpuStatus.validated;
       gpuAvailable = detected;
       gpuActiveBackend = activeBackend.backend;
+
+      // Advisory — the model dropdowns use it to flag choices that won't fit.
+      hardware = await nomnom.hardwareDetect().catch(() => null);
     } finally {
       loading = false;
     }
   });
+
+  /** Memory the embedding model claims, so the chat list is scored against it. */
+  $: embedRuntimeGb =
+    embedValue.provider === 'local'
+      ? (embedCatalog.find((m) => m.id === embedValue.model)?.runtimeGb ?? 0)
+      : 0;
+  $: chatRuntimeGb =
+    chatEnabled && chatValue.provider === 'local'
+      ? (chatCatalog.find((m) => m.id === chatValue.model)?.runtimeGb ?? 0)
+      : 0;
+  $: hwBudgetGb = hardware?.recommendation.budgetGb ?? null;
 
   function handleChatToggle() {
     if (chatEnabled) {
@@ -235,12 +252,26 @@
         <h3 class="section-title"><Sparkles size={13} /> Models</h3>
         <p class="section-desc">Choose which models power search and chat.</p>
 
+        {#if hardware}
+          <p class="hw-line">
+            {hardware.profile.gpuNames[0] ?? 'No GPU detected'} ·
+            {hardware.recommendation.totalGb} GB total, budgeting
+            {hardware.recommendation.budgetGb} GB for models ·
+            currently using ~{Math.round((embedRuntimeGb + chatRuntimeGb) * 10) / 10} GB
+          </p>
+        {/if}
+
         <div class="models-grid">
           <div class="model-col">
             <h4 class="subsection-title">Embedding</h4>
             <p class="subsection-desc">Searchable representations of your documents.</p>
             <div class="section-card">
-              <EmbedForm bind:value={embedValue} catalog={embedCatalog} />
+              <EmbedForm
+                bind:value={embedValue}
+                catalog={embedCatalog}
+                budgetGb={hwBudgetGb}
+                companionGb={chatRuntimeGb}
+              />
             </div>
           </div>
 
@@ -252,7 +283,12 @@
             <p class="subsection-desc">Q&A with your documents in the chat drawer.</p>
             {#if chatEnabled}
               <div class="section-card">
-                <ChatModelForm bind:value={chatValue} catalog={chatCatalog} />
+                <ChatModelForm
+                  bind:value={chatValue}
+                  catalog={chatCatalog}
+                  budgetGb={hwBudgetGb}
+                  companionGb={embedRuntimeGb}
+                />
               </div>
             {:else}
               <p class="disabled-hint">Disabled — searchable via MCP tools only.</p>
@@ -449,6 +485,12 @@
     font-size: 11px;
     color: var(--text-secondary);
     margin: 0 0 10px;
+  }
+
+  .hw-line {
+    font-size: 11px;
+    color: var(--text-dim, var(--text-secondary));
+    margin: -4px 0 10px;
   }
 
   .models-grid {

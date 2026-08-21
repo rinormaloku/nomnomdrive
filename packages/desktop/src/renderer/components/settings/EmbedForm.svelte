@@ -13,6 +13,23 @@
 
   export let value: EmbedConfigValue = { provider: 'local', model: '' };
   export let catalog: ModelOption[] = [];
+  /** Memory we're planning against, in GB. null when hardware wasn't detected. */
+  export let budgetGb: number | null = null;
+  /** Memory already claimed by the chat model, so the two are scored together. */
+  export let companionGb = 0;
+
+  /** "~1 GB · fits" / "~4.8 GB · over budget" for a catalog entry. */
+  function fitNote(m: ModelOption): string {
+    if (budgetGb === null || m.runtimeGb === undefined) return '';
+    const need = Math.round((m.runtimeGb + companionGb) * 10) / 10;
+    return need <= budgetGb ? ` · ~${m.runtimeGb} GB` : ` · ~${m.runtimeGb} GB, over budget`;
+  }
+
+  $: selectedOverBudget =
+    budgetGb !== null &&
+    provider === 'local' &&
+    catalogEntry?.runtimeGb !== undefined &&
+    catalogEntry.runtimeGb + companionGb > budgetGb;
 
   // Internal state split by provider
   let provider: 'local' | 'openai' | 'gemini' = value.provider;
@@ -90,10 +107,18 @@
       <label class="field-label" for="embed-local-model">Model</label>
       <select id="embed-local-model" class="field-select" bind:value={localModel}>
         {#each catalog as m}
-          <option value={m.id}>{m.label}{m.recommended ? ' (recommended)' : ''} — {m.size}</option>
+          <option value={m.id}>
+            {m.label}{m.recommended ? ' (recommended)' : ''} — {m.size}{fitNote(m)}
+          </option>
         {/each}
         <option value="__custom__">Custom model…</option>
       </select>
+      {#if selectedOverBudget}
+        <p class="field-warn">
+          This needs more memory than we've budgeted ({budgetGb} GB). It will still run,
+          but expect it to spill to system RAM and index slowly.
+        </p>
+      {/if}
     </div>
     {#if localModel === '__custom__'}
       <div class="field">
@@ -208,6 +233,13 @@
     text-transform: none;
     letter-spacing: 0;
     color: var(--text-dim);
+  }
+
+  .field-warn {
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--yellow, #e5a100);
+    margin: 2px 0 0;
   }
 
   .field-select,

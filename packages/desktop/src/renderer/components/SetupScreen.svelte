@@ -2,16 +2,22 @@
   import { onMount } from 'svelte';
   import { nomnom } from '../lib/nomnom';
   import { setupStatus, setupProgress, setupGpuFailed, activeView } from '../lib/stores';
-  import type { ModelOption, SetupCatalog } from '../lib/types';
+  import type { ModelOption, SetupCatalog, HardwareReport, ModelPick } from '../lib/types';
   import EmbedForm from './settings/EmbedForm.svelte';
   import type { EmbedConfigValue, ChatConfigValue } from '../lib/types';
   import ChatModelForm from './settings/ChatModelForm.svelte';
   import Bot from './Bot.svelte';
 
-  type Step = 'loading' | 'welcome' | 'folder' | 'embed' | 'chat' | 'gpu' | 'downloading' | 'done' | 'error';
+  type Step = 'loading' | 'welcome' | 'folder' | 'hardware' | 'embed' | 'chat' | 'gpu' | 'downloading' | 'done' | 'error';
 
   let step: Step = 'loading';
   let catalog: SetupCatalog | null = null;
+
+  // Hardware step
+  let hardware: HardwareReport | null = null;
+  let hardwareLoading = false;
+  type PlanChoice = 'api' | 'local' | 'local-light';
+  let planChoice: PlanChoice = 'local';
 
   // Form state
   let watchPath = '';
@@ -51,8 +57,51 @@
   });
 
   function nextFromWelcome() { step = 'folder'; }
-  function nextFromFolder() { step = 'embed'; }
   function nextFromEmbed() { step = 'chat'; }
+
+  async function nextFromFolder() {
+    step = 'hardware';
+    if (hardware) return;
+    hardwareLoading = true;
+    try {
+      hardware = await nomnom.hardwareDetect();
+      planChoice = hardware.recommendation.preferred === 'api' ? 'api' : 'local';
+    } catch {
+      // Detection is advisory — if every probe failed, fall through to the
+      // normal model steps with the catalog defaults already in place.
+      hardware = null;
+    }
+    hardwareLoading = false;
+  }
+
+  /** Turn the chosen plan into prefilled embed/chat form values. */
+  function applyPlan() {
+    const rec = hardware?.recommendation;
+    if (!rec) return;
+
+    if (planChoice === 'api') {
+      embedValue = { provider: 'openai', model: 'text-embedding-3-small', apiKey: '' };
+      chatValue = { provider: 'openai', model: 'gpt-4.1-mini', apiKey: '' };
+      return;
+    }
+
+    const pick: ModelPick | null = planChoice === 'local-light' ? rec.localLight : rec.local;
+    if (!pick) return;
+
+    embedValue = { provider: 'local', model: pick.embedModelId };
+    // A plan with no local chat model means the machine can embed but not chat —
+    // send them to the chat step already pointed at an external provider.
+    chatValue = pick.chatModelId
+      ? { provider: 'local', model: pick.chatModelId }
+      : { provider: 'openai', model: 'gpt-4.1-mini', apiKey: '' };
+  }
+
+  function nextFromHardware() {
+    applyPlan();
+    step = 'embed';
+  }
+
+  $: hwBudgetGb = hardware?.recommendation.budgetGb ?? null;
 
   async function nextFromChat() {
     // Only show GPU step when at least one local model is selected
@@ -155,8 +204,13 @@
         <div class="setup-logo"><Bot size={72} shadow blink /></div>
         <h2 class="setup-title">Welcome to NomNomDrive</h2>
         <p class="setup-subtitle">
-          Your local AI document search. Let's set up your models —
-          everything runs on your machine, nothing leaves your computer.
+          Your documents, indexed and searchable. Your files stay on this machine —
+          they're never uploaded anywhere.
+        </p>
+        <p class="setup-subtitle">
+          You choose which models do the work. Running them locally keeps everything
+          offline; connecting an external model gives the best answers. We'll check
+          your hardware and suggest the right mix.
         </p>
         <button class="setup-btn primary" onclick={nextFromWelcome}>Get Started</button>
       </div>
@@ -177,15 +231,93 @@
         </div>
       </div>
 
+    {:else if step === 'hardware'}
+      <div class="setup-step">
+        <h3 class="setup-step-title">Your Hardware</h3>
+
+        {#if hardwareLoading}
+          <div class="gpu-detecting">
+            <div class="setup-spinner small"></div>
+            <span>Checking what this machine can run...</span>
+          </div>
+        {:else if !hardware}
+          <p class="setup-step-desc">
+            We couldn't read your GPU memory, so we'll start with the standard models.
+            You can change them on the next screens or later in Settings.
+          </p>
+        {:else}
+          {@const rec = hardware.recommendation}
+          <p class="hw-headline">{rec.headline}</p>
+          <p class="setup-step-desc">{rec.detail}</p>
+
+          <div class="gpu-options">
+            <label class="gpu-option">
+              <input type="radio" name="plan" value="api" bind:group={planChoice} />
+              <div class="gpu-option-body">
+                <span class="gpu-option-label">
+                  External models
+                  {#if rec.preferred === 'api'}<span class="hw-tag">recommended</span>{/if}
+                </span>
+                <span class="gpu-option-desc">
+                  Best answer quality and nothing to download. Uses an OpenAI-compatible
+                  API — only the text you search over is sent. You'll add a key next.
+                </span>
+              </div>
+            </label>
+
+            {#if rec.local}
+              <label class="gpu-option">
+                <input type="radio" name="plan" value="local" bind:group={planChoice} />
+                <div class="gpu-option-body">
+                  <span class="gpu-option-label">
+                    Fully local
+                    {#if rec.preferred === 'local'}<span class="hw-tag">recommended</span>{/if}
+                  </span>
+                  <span class="gpu-option-desc">
+                    {rec.local.embedLabel}
+                    {#if rec.local.chatLabel}+ {rec.local.chatLabel}{:else}for search, external model for chat{/if}
+                    — about {rec.local.estimatedGb} GB of your {rec.budgetGb} GB budget.
+                  </span>
+                </div>
+              </label>
+            {/if}
+
+            {#if rec.localLight}
+              <label class="gpu-option">
+                <input type="radio" name="plan" value="local-light" bind:group={planChoice} />
+                <div class="gpu-option-body">
+                  <span class="gpu-option-label">Local, lighter</span>
+                  <span class="gpu-option-desc">
+                    {rec.localLight.embedLabel}
+                    {#if rec.localLight.chatLabel}+ {rec.localLight.chatLabel}{/if}
+                    — about {rec.localLight.estimatedGb} GB. Leaves more room for
+                    everything else you have open.
+                  </span>
+                </div>
+              </label>
+            {/if}
+          </div>
+
+          <p class="hw-source">Detected via {hardware.profile.source}</p>
+        {/if}
+
+        <div class="setup-nav">
+          <button class="setup-btn secondary" onclick={() => step = 'folder'}>Back</button>
+          <button class="setup-btn primary" onclick={nextFromHardware} disabled={hardwareLoading}>
+            Next
+          </button>
+        </div>
+      </div>
+
     {:else if step === 'embed'}
       <div class="setup-step">
         <h3 class="setup-step-title">Embedding</h3>
         <p class="setup-step-desc">Creates searchable representations of your documents.</p>
         {#if catalog}
-          <EmbedForm bind:value={embedValue} catalog={catalog.embedModels} />
+          <EmbedForm bind:value={embedValue} catalog={catalog.embedModels} budgetGb={hwBudgetGb} />
         {/if}
         <div class="setup-nav">
-          <button class="setup-btn secondary" onclick={() => step = 'folder'}>Back</button>
+          <button class="setup-btn secondary" onclick={() => step = 'hardware'}>Back</button>
           <button class="setup-btn primary" onclick={nextFromEmbed}>Next</button>
         </div>
       </div>
@@ -195,7 +327,14 @@
         <h3 class="setup-step-title">Chat Model</h3>
         <p class="setup-step-desc">For local Q&A with your documents. You can skip this if you only need MCP search.</p>
         {#if catalog}
-          <ChatModelForm bind:value={chatValue} catalog={catalog.chatModels} />
+          <ChatModelForm
+            bind:value={chatValue}
+            catalog={catalog.chatModels}
+            budgetGb={hwBudgetGb}
+            companionGb={embedValue.provider === 'local'
+              ? (catalog.embedModels.find((m) => m.id === embedValue.model)?.runtimeGb ?? 0)
+              : 0}
+          />
         {/if}
         <div class="setup-nav">
           <button class="setup-btn secondary" onclick={() => step = 'embed'}>Back</button>
@@ -564,5 +703,36 @@
     font-size: 11px;
     color: var(--text-secondary);
     margin: 4px 0 0;
+  }
+
+  /* Hardware step */
+  .hw-headline {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0;
+  }
+
+  .hw-tag {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--accent-light, rgba(90, 130, 255, 0.15));
+    color: var(--accent);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .hw-source {
+    font-size: 10px;
+    color: var(--text-dim, var(--text-secondary));
+    margin: 2px 0 0;
+  }
+
+  .gpu-option-desc {
+    line-height: 1.45;
   }
 </style>

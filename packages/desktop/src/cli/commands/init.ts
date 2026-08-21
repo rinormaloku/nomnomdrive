@@ -17,7 +17,17 @@ import {
   DEFAULT_OPENAI_EMBED_MODEL,
   DEFAULT_GEMINI_EMBED_MODEL,
   registerMcpClients,
+  recommendForHardware,
+  type HardwareRecommendation,
+  type ModelOption,
 } from '@nomnomdrive/shared';
+import { detectHardware } from '../../main/hardware-detect';
+
+/** Suffix showing a model's memory cost and whether it fits the detected budget. */
+function fitSuffix(m: ModelOption, rec: HardwareRecommendation | null): string {
+  if (!rec || m.runtimeGb === undefined) return '';
+  return m.runtimeGb <= rec.budgetGb ? ` [~${m.runtimeGb} GB]` : ` [~${m.runtimeGb} GB — over budget]`;
+}
 
 export function initCommand(): Command {
   return new Command('init')
@@ -47,6 +57,18 @@ export function initCommand(): Command {
         console.log(`  Created ${expandedDrop}`);
       }
 
+      // ── Hardware check ────────────────────────────────────────────────
+      // Advisory only: it pre-selects the model prompts below and annotates each
+      // option with its memory cost. Every choice stays available either way.
+      let rec: HardwareRecommendation | null = null;
+      try {
+        rec = recommendForHardware(await detectHardware());
+        console.log(`\n  ${rec.headline}`);
+        console.log(`  ${rec.detail}\n`);
+      } catch {
+        /* detection is best-effort — fall through to the catalog defaults */
+      }
+
       // ── Embedding provider ────────────────────────────────────────────
       const providerChoice = await select({
         message: 'Embedding provider:',
@@ -55,6 +77,7 @@ export function initCommand(): Command {
           { name: 'OpenAI / OpenAI-compatible API', value: 'openai' },
           { name: 'Google Gemini API', value: 'gemini' },
         ],
+        default: rec?.local ? 'local' : 'openai',
       });
 
       let embedModelId = EMBED_MODELS[0].id;
@@ -63,12 +86,22 @@ export function initCommand(): Command {
       if (providerChoice === 'local') {
         const embedChoices = [
           ...EMBED_MODELS.map((m) => ({
-            name: `${m.label} (${m.size})${m.recommended ? ' ← recommended' : ''}`,
+            name:
+              `${m.label} (${m.size})${fitSuffix(m, rec)}` +
+              (m.id === rec?.local?.embedModelId
+                ? ' ← best for your hardware'
+                : m.recommended
+                  ? ' ← recommended'
+                  : ''),
             value: m.id,
           })),
           { name: 'Enter custom HuggingFace model path', value: MODEL_CUSTOM },
         ];
-        const embedChoice = await select({ message: 'Embedding model:', choices: embedChoices });
+        const embedChoice = await select({
+          message: 'Embedding model:',
+          choices: embedChoices,
+          default: rec?.local?.embedModelId,
+        });
         embedModelId = embedChoice === MODEL_CUSTOM
           ? await input({ message: 'Custom model (hf:<org>/<repo> or absolute path):' })
           : embedChoice;
@@ -87,16 +120,31 @@ export function initCommand(): Command {
       // ── Chat model (from shared catalog) ─────────────────────────────
       const chatChoices = [
         ...CHAT_MODELS.map((m) => ({
-          name: `${m.label} (${m.size})${m.recommended ? ' ← recommended' : ''}`,
+          name:
+            `${m.label} (${m.size})${fitSuffix(m, rec)}` +
+            (m.id === rec?.local?.chatModelId
+              ? ' ← best for your hardware'
+              : m.recommended
+                ? ' ← recommended'
+                : ''),
           value: m.id,
         })),
         { name: 'Enter custom HuggingFace model path', value: MODEL_CUSTOM },
-        { name: 'Skip — I only need MCP, no local chat', value: MODEL_SKIP },
+        {
+          name:
+            rec && !rec.local?.chatModelId
+              ? 'Skip — use an external chat model (suggested for this machine)'
+              : 'Skip — I only need MCP, no local chat',
+          value: MODEL_SKIP,
+        },
       ];
 
       const chatChoice = await select({
         message: 'Chat model (for local Q&A with your docs):',
         choices: chatChoices,
+        // No local chat in the plan means the machine can't run one well — start
+        // the cursor on Skip rather than on a model that will disappoint.
+        default: rec ? (rec.local?.chatModelId ?? MODEL_SKIP) : undefined,
       });
 
       let chatModelId = chatChoice;

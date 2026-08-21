@@ -4,8 +4,25 @@
 
   export let value: ChatConfigValue = { provider: 'local', model: '' };
   export let catalog: ModelOption[] = [];
+  /** Memory we're planning against, in GB. null when hardware wasn't detected. */
+  export let budgetGb: number | null = null;
+  /** Memory already claimed by the embedding model — both stay resident together. */
+  export let companionGb = 0;
 
   const CUSTOM = '__custom__';
+
+  function fitNote(m: ModelOption): string {
+    if (budgetGb === null || m.runtimeGb === undefined) return '';
+    const need = Math.round((m.runtimeGb + companionGb) * 10) / 10;
+    return need <= budgetGb ? ` · ~${m.runtimeGb} GB` : ` · ~${m.runtimeGb} GB, over budget`;
+  }
+
+  $: selectedEntry = catalog.find((m) => m.id === selected);
+  $: selectedOverBudget =
+    budgetGb !== null &&
+    provider === 'local' &&
+    selectedEntry?.runtimeGb !== undefined &&
+    selectedEntry.runtimeGb + companionGb > budgetGb;
 
   // Internal state split by provider
   let provider: 'local' | 'openai' =
@@ -85,10 +102,18 @@
       <label class="field-label" for="chat-model">Model</label>
       <select id="chat-model" class="field-select" bind:value={selected}>
         {#each catalog as m}
-          <option value={m.id}>{m.label}{m.recommended ? ' (recommended)' : ''} — {m.size}</option>
+          <option value={m.id}>
+            {m.label}{m.recommended ? ' (recommended)' : ''} — {m.size}{fitNote(m)}
+          </option>
         {/each}
         <option value={CUSTOM}>Custom model...</option>
       </select>
+      {#if selectedOverBudget}
+        <p class="field-warn">
+          Together with your embedding model this exceeds the {budgetGb} GB we budget for
+          inference. It will still load, but generation will be slow once it spills to RAM.
+        </p>
+      {/if}
     </div>
 
     {#if selected === CUSTOM}
@@ -170,6 +195,13 @@
     text-transform: none;
     letter-spacing: 0;
     color: var(--text-dim);
+  }
+
+  .field-warn {
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--yellow, #e5a100);
+    margin: 2px 0 0;
   }
 
   .field-select,

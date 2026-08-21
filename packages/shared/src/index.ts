@@ -2,6 +2,7 @@ export * from './types';
 export * from './constants';
 export * from './mcp-schemas';
 export * from './model-catalog';
+export * from './hardware-tiers';
 export * from './config';
 export * from './models';
 export * from './mcp-register';

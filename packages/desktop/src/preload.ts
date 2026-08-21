@@ -47,6 +47,9 @@ contextBridge.exposeInMainWorld('nomnom', {
     defaults: { watchPath: string; embedModelId: string; chatModelId: string; mcpPort: number };
   }> => ipcRenderer.invoke('setup:get-catalog'),
 
+  hardwareDetect: (): Promise<{ profile: unknown; recommendation: unknown }> =>
+    ipcRenderer.invoke('hardware:detect'),
+
   setupStart: (options: {
     watchPath: string;
     embedModelId: string;
