@@ -1,0 +1,15 @@
+# Build context for packages/cloud/Dockerfile (docker compose builds from the repo root).
+# The Dockerfile copies only manifests, sources and packages/cloud/public; keep secrets,
+# local databases and host-built artefacts out of the context.
+.git
+**/.git
+.env
+.env.*
+*.db
+*.db-shm
+*.db-wal
+data
+**/node_modules
+**/dist
+**/dist-electron
+packages/desktop

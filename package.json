@@ -20,5 +20,12 @@
     "eslint": "^9.0.0",
     "prettier": "^3.0.0",
     "typescript": "^5.7.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "@nestjs/platform-express>body-parser": "^1.20.9",
+      "@nestjs/platform-express>multer": "^2.5.0",
+      "@nestjs/platform-ws>ws": "^8.21.0"
+    }
   }
 }
